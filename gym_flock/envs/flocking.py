@@ -1,5 +1,5 @@
 import gym
-from gym import spaces
+from gym import spaces, error, utils
 from gym.utils import seeding
 import numpy as np
 from scipy.spatial.distance import pdist, squareform

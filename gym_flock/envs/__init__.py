@@ -1,1 +1,2 @@
-from gym_flock.envs.flock_env import Flock
+from gym_flock.envs.flocking import FlockingEnv
+from gym_flock.envs.lqr import LQREnv

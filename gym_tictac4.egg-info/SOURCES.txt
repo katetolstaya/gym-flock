@@ -1,6 +1,0 @@
-setup.py
-gym_tictac4.egg-info/PKG-INFO
-gym_tictac4.egg-info/SOURCES.txt
-gym_tictac4.egg-info/dependency_links.txt
-gym_tictac4.egg-info/requires.txt
-gym_tictac4.egg-info/top_level.txt
