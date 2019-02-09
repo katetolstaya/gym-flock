@@ -5,6 +5,12 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 import configparser
 from os import path
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import gca
+
+font = {'family' : 'sans-serif',
+        'weight' : 'bold',
+        'size'   : 14}
 
 class FlockingEnv(gym.Env):
 
@@ -15,6 +21,8 @@ class FlockingEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
+        self.fig = None
+        self.line1 = None
         self.filter_len = int(config['filter_length'])
         self.nx_system = 4
         self.n_nodes = int(config['network_size'])
@@ -54,6 +62,28 @@ class FlockingEnv(gym.Env):
         self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features, ), dtype=np.float32)
 
         self.seed()
+
+    def render(self, mode='human'):
+
+        if self.fig is None:
+            plt.ion()
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            line1, = ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
+            ax.plot([0], [0], 'kx')
+            plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
+            plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
+            a = gca()
+            a.set_xticklabels(a.get_xticks(), font)
+            a.set_yticklabels(a.get_yticks(), font)
+            plt.title('GNN Controller')
+            self.fig = fig
+            self.line1 = line1
+
+        self.line1.set_xdata(self.x[:, 0])
+        self.line1.set_ydata(self.x[:, 1])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
 
     def seed(self, seed=None):
