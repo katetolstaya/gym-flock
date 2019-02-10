@@ -54,6 +54,8 @@ class FlockingEnv(gym.Env):
         self.max_accel = 40
         self.max_z = 200  
 
+        self.b = np.ones((self.n_nodes,1))
+
         # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_nodes, 2), dtype=np.float32 )
         # self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(
         # self.n_nodes, self.nx * self.filter_len * self.n_pools) , dtype=np.float32)
@@ -98,9 +100,9 @@ class FlockingEnv(gym.Env):
         # y position
         x_[:, 1] = x[:, 1] + x[:, 3] * self.dt
         # x velocity
-        x_[:, 2] = x[:, 2] + 0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
+        x_[:, 2] = x[:, 2] + self.b * 0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # y velocity
-        x_[:, 3] = x[:, 3] + 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
+        x_[:, 3] = x[:, 3] + self.b * 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
         self.x_agg = self.aggregate(self.x, self.x_agg)
@@ -141,6 +143,11 @@ class FlockingEnv(gym.Env):
             min_dist = np.min(np.min(a_net))
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
+
+            self.b = np.ones((self.n_nodes,))
+            ind = np.random.randint(0,self.n_nodes,(1,))
+            self.b[ind] = 0
+
 
         self.x = x
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
