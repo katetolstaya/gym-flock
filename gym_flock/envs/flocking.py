@@ -144,9 +144,11 @@ class FlockingEnv(gym.Env):
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
 
-            self.b = np.ones((self.n_nodes,))
-            ind = np.random.randint(0,self.n_nodes,(1,))
-            self.b[ind] = 0
+        self.b = np.ones((self.n_nodes,))
+        #ind = np.random.randint(0,self.n_nodes,(1,))
+        self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
+
+
 
 
         self.x = x
