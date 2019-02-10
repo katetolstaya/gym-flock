@@ -146,12 +146,9 @@ class FlockingEnv(gym.Env):
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
 
+        # the leader is the fastest agent
         self.b = np.ones((self.n_nodes,))
-        #ind = np.random.randint(0,self.n_nodes,(1,))
         self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
-
-
-
 
         self.x = x
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
