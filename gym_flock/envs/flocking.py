@@ -21,11 +21,13 @@ class FlockingEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
+        self.n_leaders = 5
+
         self.fig = None
         self.line1 = None
         self.filter_len = int(config['filter_length'])
         self.nx_system = 4
-        self.n_nodes = int(config['network_size'])
+        self.n_nodes = int(config['network_size']) + self.n_leaders
         self.comm_radius = float(config['comm_radius'])
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
@@ -96,6 +98,8 @@ class FlockingEnv(gym.Env):
     def step(self, u):
         x = self.x
         x_ = np.zeros((self.n_nodes, self.nx_system))
+
+        u = np.vstack((np.zeros((self.n_leaders, 2)), u))
         # x position
         x_[:, 0] = x[:, 0] + x[:, 2] * self.dt
         # y position
@@ -116,7 +120,8 @@ class FlockingEnv(gym.Env):
 
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
-        return np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
+        clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
+        return clipped[self.n_leaders:, :]
 
     def reset(self):
         x = np.zeros((self.n_nodes, self.nx_system))
@@ -134,6 +139,9 @@ class FlockingEnv(gym.Env):
             x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[0]
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
 
+            x[0:2, 2] = bias[0]
+            x[0:2, 3] = bias[1]
+
             # compute distances between agents
             x_t_loc = x[:, 0:2]  # x,y location determines connectivity
             a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
@@ -146,9 +154,12 @@ class FlockingEnv(gym.Env):
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
 
-        # the leader is the fastest agent
+
+        # the first two agents are the leaders
         self.b = np.ones((self.n_nodes,))
-        self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
+        self.b[0] = 0
+        self.b[1] = 0
+        # self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
 
         self.x = x
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
