@@ -50,6 +50,7 @@ class FlockingEnv(gym.Env):
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
         self.x = np.zeros((self.n_nodes, self.nx_system))
         self.u = np.zeros((self.n_nodes, self.nu))
+        self.mean_vel = np.zeros((self.n_nodes, self.nu))
 
         # TODO
         self.max_accel = 40
@@ -111,10 +112,12 @@ class FlockingEnv(gym.Env):
         self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
 
+
         return self._get_obs(), -self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        #return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        return np.sum(np.square(self.x[:,2:4] - self.mean_vel))
 
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
@@ -137,9 +140,6 @@ class FlockingEnv(gym.Env):
             x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[0]
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
 
-            x[0:2, 2] = bias[0]
-            x[0:2, 3] = bias[1]
-
             # compute distances between agents
             x_t_loc = x[:, 0:2]  # x,y location determines connectivity
             a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
@@ -152,12 +152,7 @@ class FlockingEnv(gym.Env):
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
 
-
-        # the first two agents are the leaders
-        # self.b = np.ones((self.n_nodes,))
-        # self.b[0] = 0
-        # self.b[1] = 0
-        # self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
+            self.mean_vel = np.mean(x[:,2:4],axis=0)
 
         self.x = x
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
