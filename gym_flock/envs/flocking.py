@@ -254,13 +254,14 @@ class FlockingEnv(gym.Env):
         """
         return func(mat, axis=1).reshape((self.n_nodes, self.n_features))  # TODO check this axis = 1
 
-    def controller(self, x):
+    def controller(self):
         """
         The controller for flocking from Turner 2003.
         Args:
             x (): the current state
         Returns: the optimal action
         """
+        x = self.x
 
         s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
         r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
