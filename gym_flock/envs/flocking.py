@@ -21,13 +21,11 @@ class FlockingEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
-        self.n_leaders = 5
-
         self.fig = None
         self.line1 = None
         self.filter_len = int(config['filter_length'])
         self.nx_system = 4
-        self.n_nodes = int(config['network_size']) + self.n_leaders
+        self.n_nodes = int(config['network_size']) 
         self.comm_radius = float(config['comm_radius'])
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
@@ -57,7 +55,7 @@ class FlockingEnv(gym.Env):
         self.max_accel = 40
         self.max_z = 200  
 
-        self.b = np.ones((self.n_nodes,1))
+        # self.b = np.ones((self.n_nodes,1))
 
         # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_nodes, 2), dtype=np.float32 )
         # self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(
@@ -99,15 +97,15 @@ class FlockingEnv(gym.Env):
         x = self.x
         x_ = np.zeros((self.n_nodes, self.nx_system))
 
-        u = np.vstack((np.zeros((self.n_leaders, 2)), u))
+        #u = np.vstack((np.zeros((self.n_leaders, 2)), u))
         # x position
         x_[:, 0] = x[:, 0] + x[:, 2] * self.dt
         # y position
         x_[:, 1] = x[:, 1] + x[:, 3] * self.dt
         # x velocity
-        x_[:, 2] = x[:, 2] + self.b * 0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
+        x_[:, 2] = x[:, 2] +  0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # y velocity
-        x_[:, 3] = x[:, 3] + self.b * 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
+        x_[:, 3] = x[:, 3] +  0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
         self.x_agg = self.aggregate(self.x, self.x_agg)
@@ -121,7 +119,7 @@ class FlockingEnv(gym.Env):
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
         clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        return clipped[self.n_leaders:, :]
+        return clipped #[self.n_leaders:, :]
 
     def reset(self):
         x = np.zeros((self.n_nodes, self.nx_system))
@@ -156,9 +154,9 @@ class FlockingEnv(gym.Env):
 
 
         # the first two agents are the leaders
-        self.b = np.ones((self.n_nodes,))
-        self.b[0] = 0
-        self.b[1] = 0
+        # self.b = np.ones((self.n_nodes,))
+        # self.b[0] = 0
+        # self.b[1] = 0
         # self.b[np.argmax(np.linalg.norm(x[:,2:4], axis=1))] = 0
 
         self.x = x
@@ -260,4 +258,33 @@ class FlockingEnv(gym.Env):
 
         """
         return func(mat, axis=1).reshape((self.n_nodes, self.n_features))  # TODO check this axis = 1
+
+    def controller(self, x):
+        """
+        The controller for flocking from Turner 2003.
+        Args:
+            x (): the current state
+        Returns: the optimal action
+        """
+
+        s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
+        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
+            self.n_nodes)
+        p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
+        p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
+        return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+
+    def potential_grad(self, pos_diff, r2):
+        """
+        Computes the gradient of the potential function for flocking proposed in Turner 2003.
+        Args:
+            pos_diff (): difference in a component of position among all agents
+            r2 (): distance squared between agents
+
+        Returns: corresponding component of the gradient of the potential
+
+        """
+        grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
+        grad[r2 > self.comm_radius] = 0
+        return grad
 
