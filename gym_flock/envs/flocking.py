@@ -116,8 +116,8 @@ class FlockingEnv(gym.Env):
         return self._get_obs(), -self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        #return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
-        return np.sum(np.square(self.x[:,2:4] - self.mean_vel))
+        return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        #return np.sum(np.square(self.x[:,2:4] - self.mean_vel))
 
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
