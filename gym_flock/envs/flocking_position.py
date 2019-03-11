@@ -8,10 +8,9 @@ from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 
-font = {'family': 'sans-serif',
-        'weight': 'bold',
-        'size': 14}
-
+font = {'family' : 'sans-serif',
+        'weight' : 'bold',
+        'size'   : 14}
 
 class FlockingEnv(gym.Env):
 
@@ -26,7 +25,7 @@ class FlockingEnv(gym.Env):
         self.line1 = None
         self.filter_len = int(config['filter_length'])
         self.nx_system = 4
-        self.n_nodes = int(config['network_size'])
+        self.n_nodes = int(config['network_size']) 
         self.comm_radius = float(config['comm_radius'])
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
@@ -34,13 +33,13 @@ class FlockingEnv(gym.Env):
         self.r_max = float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
 
-        self.pooling = [np.nanmean]
-        # if config.getboolean('sum_pooling'):
-        #     self.pooling.append(np.nansum)
-        # if config.getboolean('min_pooling'):
-        #     self.pooling.append(np.nanmin)
-        # if config.getboolean('max_pooling'):
-        #     self.pooling.append(np.nanmax)
+        self.pooling = []
+        if config.getboolean('sum_pooling'):
+            self.pooling.append(np.nansum)
+        if config.getboolean('min_pooling'):
+            self.pooling.append(np.nanmin)
+        if config.getboolean('max_pooling'):
+            self.pooling.append(np.nanmax)
         self.n_pools = len(self.pooling)
 
         # number of features and outputs
@@ -52,15 +51,19 @@ class FlockingEnv(gym.Env):
         self.x = np.zeros((self.n_nodes, self.nx_system))
         self.u = np.zeros((self.n_nodes, self.nu))
         self.mean_vel = np.zeros((self.n_nodes, self.nu))
-        self.init_vel = np.zeros((self.n_nodes, self.nu))
 
         # TODO
         self.max_accel = 40
-        self.max_z = 200
+        self.max_z = 200  
 
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features,),
-                                            dtype=np.float32)
+        # self.b = np.ones((self.n_nodes,1))
+
+        # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_nodes, 2), dtype=np.float32 )
+        # self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(
+        # self.n_nodes, self.nx * self.filter_len * self.n_pools) , dtype=np.float32)
+
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2,) , dtype=np.float32 )
+        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features, ), dtype=np.float32)
 
         self.seed()
 
@@ -86,6 +89,7 @@ class FlockingEnv(gym.Env):
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
+
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -94,36 +98,31 @@ class FlockingEnv(gym.Env):
         x = self.x
         x_ = np.zeros((self.n_nodes, self.nx_system))
 
-        # u = np.vstack((np.zeros((self.n_leaders, 2)), u))
+        #u = np.vstack((np.zeros((self.n_leaders, 2)), u))
         # x position
         x_[:, 0] = x[:, 0] + x[:, 2] * self.dt
         # y position
         x_[:, 1] = x[:, 1] + x[:, 3] * self.dt
         # x velocity
-        x_[:, 2] = x[:, 2] + 0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
+        x_[:, 2] = x[:, 2] +  0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # y velocity
-        x_[:, 3] = x[:, 3] + 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
+        x_[:, 3] = x[:, 3] +  0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev,(self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
         self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
 
-        amax, cost = self.instant_cost()
-        obs = self._get_obs()
 
-        return (amax, obs), -cost, False, {}
+        return self._get_obs(), -self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        # return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
-
-        costs = np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
-        amax = np.argmax(costs)
-        return amax, costs[amax]
+        return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        #return np.sum(np.square(self.x[:,2:4] - self.mean_vel))
 
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
         clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        return clipped  # [self.n_leaders:, :]
+        return clipped #[self.n_leaders:, :]
 
     def reset(self):
         x = np.zeros((self.n_nodes, self.nx_system))
@@ -153,14 +152,16 @@ class FlockingEnv(gym.Env):
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
 
-            self.mean_vel = np.mean(x[:, 2:4], axis=0)
-            self.init_vel = x[:, 2:4]
+            self.mean_vel = np.mean(x[:,2:4],axis=0)
 
         self.x = x
         self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
         self.x_agg = self.aggregate(self.x, self.x_agg)
 
         return self._get_obs()
+
+    # def render(self, mode='human'):
+    #     pass
 
     def close(self):
         pass
@@ -179,8 +180,8 @@ class FlockingEnv(gym.Env):
         x_features = self.get_x_features(xt)
         a_net = self.get_connectivity(xt)
         for k in range(0, self.n_pools):
-            comm_data = self.get_comms(self.get_features(x_agg[:, :, k]), a_net)
-            x_agg[:, :, k] = np.hstack((x_features, self.get_pool(comm_data, self.pooling[k])))
+            comm_data = self.get_comms(np.dstack((x_features, self.get_features(x_agg[:, :, k]))), a_net)
+            x_agg[:, :, k] = self.get_pool(comm_data, self.pooling[k])
         return x_agg
 
     def get_connectivity(self, x):
@@ -198,7 +199,7 @@ class FlockingEnv(gym.Env):
         np.fill_diagonal(a_net, 0)
         return a_net
 
-    def get_x_features(self, xt):
+    def get_x_features(self, xt): # TODO
         """
         Compute the non-linear features necessary for implementing Turner 2003
         Args:
@@ -207,7 +208,12 @@ class FlockingEnv(gym.Env):
         Returns: matrix of features for each agent
 
         """
-        return np.hstack((xt[:, 2:4], self.init_vel))
+
+        diff = xt.reshape((self.n_nodes, 1, self.nx_system)) - xt.reshape((1, self.n_nodes, self.nx_system))
+        r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1]) + np.eye(
+            self.n_nodes)
+        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
+                          diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
 
     def get_features(self, agg):
         """
@@ -246,9 +252,7 @@ class FlockingEnv(gym.Env):
             information pooled from neighbors for each agent
 
         """
-        temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - 4))
-        temp_pool[np.isnan(temp_pool)] = 0
-        return temp_pool
+        return func(mat, axis=1).reshape((self.n_nodes, self.n_features))  # TODO check this axis = 1
 
     def controller(self):
         """
@@ -279,3 +283,4 @@ class FlockingEnv(gym.Env):
         grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
         grad[r2 > self.comm_radius] = 0
         return grad
+
