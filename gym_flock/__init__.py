@@ -11,3 +11,9 @@ register(
     entry_point='gym_flock.envs:LQREnv',
     max_episode_steps=200,
 )
+register(
+    id='FlockingTest-v0',
+    entry_point='gym_flock.envs:FlockingTestEnv',
+    max_episode_steps=200,
+)
+
