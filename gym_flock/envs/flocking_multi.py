@@ -2,7 +2,7 @@ import gym
 from gym import spaces, error, utils
 from gym.utils import seeding
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
+# from scipy.spatial.distance import pdist, squareform
 import configparser
 from os import path
 import matplotlib.pyplot as plt
@@ -28,6 +28,7 @@ class FlockingMultiEnv(gym.Env):
         self.nx_system = 4
         self.n_nodes = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
+        self.comm_radius2 = self.comm_radius * self.comm_radius
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
         self.v_bias = self.v_max  # 0.5 * self.v_max
@@ -58,8 +59,9 @@ class FlockingMultiEnv(gym.Env):
         self.max_accel = 40
         self.max_z = 200
 
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2*self.n_nodes,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features*self.n_nodes,),
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_nodes,),
+                                       dtype=np.float32)
+        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features * self.n_nodes,),
                                             dtype=np.float32)
 
         self.seed()
@@ -93,7 +95,7 @@ class FlockingMultiEnv(gym.Env):
     def step(self, u):
         x = self.x
         x_ = np.zeros((self.n_nodes, self.nx_system))
-        u = np.reshape(u, (-1,2))
+        u = np.reshape(u, (-1, 2))
 
         # u = np.vstack((np.zeros((self.n_leaders, 2)), u))
         # x position
@@ -112,7 +114,7 @@ class FlockingMultiEnv(gym.Env):
         return self._get_obs(), -self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        return np.sum(np.var(self.x[:, 2:4], axis=0))  # + np.sum(np.square(self.u)) * 0.00001
 
         # costs = np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
         # amax = np.argmax(costs)
@@ -140,8 +142,12 @@ class FlockingMultiEnv(gym.Env):
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
 
             # compute distances between agents
+
             x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-            a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
+
+            a_net = np.sqrt(
+                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
+                       axis=2))
 
             # no self loops
             a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
@@ -191,8 +197,9 @@ class FlockingMultiEnv(gym.Env):
 
         """
         x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-        a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
-        a_net = (a_net < self.comm_radius).astype(float)
+        # a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
+        a_net = np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))), axis=2)
+        a_net = (a_net < self.comm_radius2).astype(float)
         np.fill_diagonal(a_net, 0)
         return a_net
 
