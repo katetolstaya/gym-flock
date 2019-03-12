@@ -116,9 +116,9 @@ class FlockingMultiEnv(gym.Env):
     def instant_cost(self):  # sum of differences in velocities
         # return np.sum(np.var(self.x[:, 2:4], axis=0))  # + np.sum(np.square(self.u)) * 0.00001
 
-        costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
-        return np.sum(costs)
-
+        s_costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
+        return np.sum(s_costs) #+ np.sum(np.square(self.u)) # todo add an action cost
+ 
         # costs = np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
         # amax = np.argmax(costs)
         # return amax, costs[amax]
@@ -265,25 +265,30 @@ class FlockingMultiEnv(gym.Env):
             x (): the current state
         Returns: the optimal action
         """
-        x = self.x
+        mean_vel = np.mean(self.x[:,2:4], axis=0)
+        u = mean_vel - self.x[:,2:4]
+        u = u * 10
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        return u
 
-        s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
-        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-            self.n_nodes)
-        p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
-        p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
-        return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+    #     x = self.x
+    #     s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
+    #     r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
+    #         self.n_nodes)
+    #     p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
+    #     p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
+    #     return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
 
-    def potential_grad(self, pos_diff, r2):
-        """
-        Computes the gradient of the potential function for flocking proposed in Turner 2003.
-        Args:
-            pos_diff (): difference in a component of position among all agents
-            r2 (): distance squared between agents
+    # def potential_grad(self, pos_diff, r2):
+    #     """
+    #     Computes the gradient of the potential function for flocking proposed in Turner 2003.
+    #     Args:
+    #         pos_diff (): difference in a component of position among all agents
+    #         r2 (): distance squared between agents
 
-        Returns: corresponding component of the gradient of the potential
+    #     Returns: corresponding component of the gradient of the potential
 
-        """
-        grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
-        grad[r2 > self.comm_radius] = 0
-        return grad
+    #     """
+    #     grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
+    #     grad[r2 > self.comm_radius] = 0
+    #     return grad
