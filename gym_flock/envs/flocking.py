@@ -111,13 +111,13 @@ class FlockingEnv(gym.Env):
         amax, cost = self.instant_cost()
         obs = self._get_obs()
 
-        return (amax, obs), -cost, False, {}
+        return (amax, obs), cost, False, {}
 
     def instant_cost(self):  # sum of differences in velocities
         # return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
 
-        costs = np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
-        amax = np.argmax(costs)
+        costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
+        amax = np.argmin(costs)
         return amax, costs[amax]
 
     def _get_obs(self):
@@ -207,7 +207,7 @@ class FlockingEnv(gym.Env):
         Returns: matrix of features for each agent
 
         """
-        return np.hstack((xt[:, 2:4], self.init_vel))
+        return np.hstack((xt, self.init_vel))
 
     def get_features(self, agg):
         """
@@ -246,7 +246,7 @@ class FlockingEnv(gym.Env):
             information pooled from neighbors for each agent
 
         """
-        temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - 4))
+        temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
         temp_pool[np.isnan(temp_pool)] = 0
         return temp_pool
 
