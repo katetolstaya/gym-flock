@@ -24,3 +24,9 @@ register(
     max_episode_steps=200,
 )
 
+register(
+    id='Consensus-v0',
+    entry_point='gym_flock.envs:ConsensusEnv',
+    max_episode_steps=200,
+)
+
