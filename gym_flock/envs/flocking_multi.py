@@ -111,6 +111,7 @@ class FlockingMultiEnv(gym.Env):
         self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
 
+        #return (self._get_obs(), self.costs_list()), self.instant_cost(), False, {}
         return self._get_obs(), self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
@@ -122,6 +123,10 @@ class FlockingMultiEnv(gym.Env):
         # costs = np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
         # amax = np.argmax(costs)
         # return amax, costs[amax]
+
+    def costs_list(self):
+        s_costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
+        return s_costs #+ np.sum(np.square(self.u)) # todo add an action cost
 
     def _get_obs(self):
         reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
