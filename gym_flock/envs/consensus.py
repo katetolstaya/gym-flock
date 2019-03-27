@@ -50,7 +50,7 @@ class ConsensusEnv(gym.Env):
         self.init_val = np.zeros((self.n_nodes, self.nu))
 
         # TODO
-        self.max_accel = 40
+        self.max_accel = 5
         self.max_z = 200
 
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.nu * self.n_nodes,),
@@ -94,17 +94,17 @@ class ConsensusEnv(gym.Env):
     def step(self, u):
         self.u = np.clip(self.u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u.reshape((self.n_nodes, self.nu))
-        self.x = self.x + 0.1 * self.u * self.dt
+        self.x = self.x +  self.u * self.dt
         self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
         return (self._get_obs(), self.cost_list()), self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        s_costs = -1.0 * np.square(self.x - self.mean_val)
+        s_costs = -1.0 * np.square(self.x - self.mean_val) #- np.sum(np.square(self.u)) * 0.001
         return np.sum(s_costs) #+ np.sum(np.square(self.u)) # todo add an action cost
 
     def cost_list(self):  # sum of differences in velocities
-        s_costs = -1.0 * np.square(self.x - self.mean_val)
+        s_costs = -1.0 * np.square(self.x - self.mean_val).flatten() #- np.square(self.u).flatten() * 0.001
         return s_costs #+ np.sum(np.square(self.u)) # todo add an action cost
 
     def _get_obs(self):
@@ -155,6 +155,6 @@ class ConsensusEnv(gym.Env):
 
     def controller(self):
         u = self.mean_val - self.x
-        u = u /self.dt / 0.1
+        u = u /self.dt #/0.1
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         return u
