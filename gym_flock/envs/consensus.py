@@ -60,32 +60,6 @@ class ConsensusEnv(gym.Env):
 
         self.seed()
 
-        x = np.zeros((self.n_nodes, 2))
-        degree = 0
-        min_dist = 0
-
-        while degree < 2 or min_dist < 0.1:  # < 0.25:  # 0.25:  #0.5: #min_dist < 0.25:
-            # randomly initialize the state of all agents
-            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_nodes,)))
-            angle = np.pi * np.random.uniform(0, 2, size=(self.n_nodes,))
-            x[:, 0] = length * np.cos(angle)
-            x[:, 1] = length * np.sin(angle)
-
-            # compute distances between agents
-            x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-
-            a_net = np.sqrt(
-                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
-                       axis=2))
-
-            # no self loops
-            a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
-
-            # compute minimum distance between agents and degree of network
-            min_dist = np.min(np.min(a_net))
-            a_net = a_net < self.comm_radius
-            degree = np.min(np.sum(a_net.astype(int), axis=1))
-        self.a_net = a_net
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -114,6 +88,37 @@ class ConsensusEnv(gym.Env):
 
     def reset(self):
 
+        x = np.zeros((self.n_nodes, 2))
+        degree = 0
+        min_dist = 0
+
+        while degree < 2 or min_dist < 0.1:  # < 0.25:  # 0.25:  #0.5: #min_dist < 0.25:
+            # randomly initialize the state of all agents
+            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_nodes,)))
+            angle = np.pi * np.random.uniform(0, 2, size=(self.n_nodes,))
+            x[:, 0] = length * np.cos(angle)
+            x[:, 1] = length * np.sin(angle)
+
+            # compute distances between agents
+            x_t_loc = x[:, 0:2]  # x,y location determines connectivity
+
+            a_net = np.sqrt(
+                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
+                       axis=2))
+
+            # no self loops
+            a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
+
+            # compute minimum distance between agents and degree of network
+            min_dist = np.min(np.min(a_net))
+            a_net = a_net < self.comm_radius
+            degree = np.min(np.sum(a_net.astype(int), axis=1))
+        a_net[a_net == 0] = np.nan
+        self.a_net = a_net
+
+
+        ################################
+
         self.x = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,1)) 
         self.mean_val = np.mean(self.x)
         self.init_val = self.x
@@ -130,7 +135,7 @@ class ConsensusEnv(gym.Env):
 
         x_features = self.get_x_features(xt)
         for k in range(0, self.n_pools):
-            comm_data = self.get_comms(self.get_features(x_agg[:, :, k]), self.a_net)
+            comm_data = self.get_comms(self.get_features(x_agg[:, :, k]))
             x_agg[:, :, k] = np.hstack((x_features, self.get_pool(comm_data, self.pooling[k])))
         return x_agg
 
@@ -142,19 +147,25 @@ class ConsensusEnv(gym.Env):
 
         return np.tile(agg[:, :-self.nx].reshape((self.n_nodes, 1, -1)), (1, self.n_nodes, 1))  # TODO check indexing
 
-    def get_comms(self, mat, a_net):
-
-        a_net[a_net == 0] = np.nan
-        return mat * a_net.reshape(self.n_nodes, self.n_nodes, 1)
+    def get_comms(self, mat):
+        return mat * self.a_net.reshape(self.n_nodes, self.n_nodes, 1)
 
     def get_pool(self, mat, func):
-
         temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
         temp_pool[np.isnan(temp_pool)] = 0
         return temp_pool
 
     def controller(self):
-        u = self.mean_val - self.x
+        comms = self.get_comms(self.get_x_features(self.x))
+
+        temp_pool = np.nanmean(comms, axis=0).reshape((self.n_nodes, 2))
+
+        temp_pool[np.isnan(temp_pool)] = 0
+
+        u = temp_pool[:,1] - self.x.flatten()
+        print(self.x)
+        print(u)
+        # u = self.mean_val - self.x
         u = u /self.dt #/0.1
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         return u
