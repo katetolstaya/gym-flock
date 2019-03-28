@@ -113,13 +113,13 @@ class ConsensusEnv(gym.Env):
             min_dist = np.min(np.min(a_net))
             a_net = a_net < self.comm_radius
             degree = np.min(np.sum(a_net.astype(int), axis=1))
+        a_net = a_net.astype(float)
         a_net[a_net == 0] = np.nan
         self.a_net = a_net
 
-
         ################################
-
-        self.x = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,1)) 
+        bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(1,))
+        self.x = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,1)) + bias
         self.mean_val = np.mean(self.x)
         self.init_val = self.x
 
@@ -151,21 +151,18 @@ class ConsensusEnv(gym.Env):
         return mat * self.a_net.reshape(self.n_nodes, self.n_nodes, 1)
 
     def get_pool(self, mat, func):
-        temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
+        temp_pool = func(mat, axis=1).reshape((self.n_nodes, self.n_features - self.nx))
         temp_pool[np.isnan(temp_pool)] = 0
         return temp_pool
 
-    def controller(self):
-        comms = self.get_comms(self.get_x_features(self.x))
-
-        temp_pool = np.nanmean(comms, axis=0).reshape((self.n_nodes, 2))
-
-        temp_pool[np.isnan(temp_pool)] = 0
-
-        u = temp_pool[:,1] - self.x.flatten()
-        print(self.x)
-        print(u)
-        # u = self.mean_val - self.x
-        u = u /self.dt #/0.1
+    def controller(self, centralized=True):
+        if not centralized:
+            comms = self.get_comms(self.get_x_features(self.x))
+            temp_pool = np.nanmean(comms, axis=1).reshape((self.n_nodes, 2))
+            temp_pool[np.isnan(temp_pool)] = 0
+            u = temp_pool[:,1] - self.x.flatten()
+        else:
+            u = self.mean_val - self.x
+        u = u /self.dt
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         return u
