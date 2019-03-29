@@ -50,7 +50,7 @@ class ConsensusEnv(gym.Env):
         self.init_val = np.zeros((self.n_nodes, self.nu))
 
         # TODO
-        self.max_accel = 10
+        self.max_accel = 2
         self.max_z = 200
 
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.nu * self.n_nodes,),
@@ -60,34 +60,6 @@ class ConsensusEnv(gym.Env):
 
         self.seed()
 
-        x = np.zeros((self.n_nodes, 2))
-        degree = 0
-        min_dist = 0
-
-        while degree < 2 or min_dist < 0.1:  # < 0.25:  # 0.25:  #0.5: #min_dist < 0.25:
-            # randomly initialize the state of all agents
-            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_nodes,)))
-            angle = np.pi * np.random.uniform(0, 2, size=(self.n_nodes,))
-            x[:, 0] = length * np.cos(angle)
-            x[:, 1] = length * np.sin(angle)
-
-            # compute distances between agents
-            x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-
-            a_net = np.sqrt(
-                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
-                       axis=2))
-
-            # no self loops
-            a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
-
-            # compute minimum distance between agents and degree of network
-            min_dist = np.min(np.min(a_net))
-            a_net = a_net < self.comm_radius
-            degree = np.min(np.sum(a_net.astype(int), axis=1))
-        a_net = a_net.astype(float)
-        a_net[a_net == 0] = np.nan
-        self.a_net = a_net
 
 
 
@@ -117,6 +89,35 @@ class ConsensusEnv(gym.Env):
         return clipped.flatten()  # [self.n_leaders:, :]
 
     def reset(self):
+        x = np.zeros((self.n_nodes, 2))
+        degree = 0
+        min_dist = 0
+
+        while degree < 2 or min_dist < 0.1:  # < 0.25:  # 0.25:  #0.5: #min_dist < 0.25:
+            # randomly initialize the state of all agents
+            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_nodes,)))
+            angle = np.pi * np.random.uniform(0, 2, size=(self.n_nodes,))
+            x[:, 0] = length * np.cos(angle)
+            x[:, 1] = length * np.sin(angle)
+
+            # compute distances between agents
+            x_t_loc = x[:, 0:2]  # x,y location determines connectivity
+
+            a_net = np.sqrt(
+                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
+                       axis=2))
+
+            # no self loops
+            a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
+
+            # compute minimum distance between agents and degree of network
+            min_dist = np.min(np.min(a_net))
+            a_net = a_net < self.comm_radius
+            degree = np.min(np.sum(a_net.astype(int), axis=1))
+        a_net = a_net.astype(float)
+        a_net[a_net == 0] = np.nan
+        self.a_net = a_net
+
 
 
         ################################
