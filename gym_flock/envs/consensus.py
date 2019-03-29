@@ -31,7 +31,7 @@ class ConsensusEnv(gym.Env):
         self.dt = 0.01 #float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
         self.v_bias = self.v_max  # 0.5 * self.v_max
-        self.r_max = float(config['max_rad_init'])
+        self.r_max = 30.0 #float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
 
         self.pooling = [np.nanmean]
@@ -59,34 +59,6 @@ class ConsensusEnv(gym.Env):
                                             dtype=np.float32)
 
         self.seed()
-
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def step(self, u):
-        self.u = np.clip(self.u, a_min=-self.max_accel, a_max=self.max_accel)
-        self.u = u.reshape((self.n_nodes, self.nu))
-        self.x = self.x +  self.u * self.dt
-        self.x_agg = self.aggregate(self.x, self.x_agg)
-        self.u = u
-        return (self._get_obs(), self.cost_list()), self.instant_cost(), False, {}
-
-    def instant_cost(self):  # sum of differences in velocities
-        s_costs = -1.0 * np.square(self.x - self.mean_val) #- np.sum(np.square(self.u)) * 0.001
-        return np.sum(s_costs) #+ np.sum(np.square(self.u)) # todo add an action cost
-
-    def cost_list(self):  # sum of differences in velocities
-        s_costs = -1.0 * np.square(self.x - self.mean_val).flatten() #- np.square(self.u).flatten() * 0.001
-        return s_costs #+ np.sum(np.square(self.u)) # todo add an action cost
-
-    def _get_obs(self):
-        reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
-        clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        return clipped.flatten()  # [self.n_leaders:, :]
-
-    def reset(self):
 
         x = np.zeros((self.n_nodes, 2))
         degree = 0
@@ -116,6 +88,36 @@ class ConsensusEnv(gym.Env):
         a_net = a_net.astype(float)
         a_net[a_net == 0] = np.nan
         self.a_net = a_net
+
+
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def step(self, u):
+        self.u = np.clip(self.u, a_min=-self.max_accel, a_max=self.max_accel)
+        self.u = u.reshape((self.n_nodes, self.nu))
+        self.x = self.x +  self.u * self.dt
+        self.x_agg = self.aggregate(self.x, self.x_agg)
+        self.u = u
+        return (self._get_obs(), self.cost_list()), self.instant_cost(), False, {}
+
+    def instant_cost(self):  # sum of differences in velocities
+        s_costs = -1.0 * np.square(self.x - self.mean_val) #- np.sum(np.square(self.u)) * 0.001
+        return np.sum(s_costs) #+ np.sum(np.square(self.u)) # todo add an action cost
+
+    def cost_list(self):  # sum of differences in velocities
+        s_costs = -1.0 * np.square(self.x - self.mean_val).flatten() #- np.square(self.u).flatten() * 0.001
+        return s_costs #+ np.sum(np.square(self.u)) # todo add an action cost
+
+    def _get_obs(self):
+        reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
+        clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
+        return clipped.flatten()  # [self.n_leaders:, :]
+
+    def reset(self):
+
 
         ################################
         bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(1,))
@@ -160,7 +162,8 @@ class ConsensusEnv(gym.Env):
             comms = self.get_comms(self.get_x_features(self.x))
             temp_pool = np.nanmean(comms, axis=1).reshape((self.n_nodes, 2))
             temp_pool[np.isnan(temp_pool)] = 0
-            u = temp_pool[:,1] - self.x.flatten()
+            #print(temp_pool)
+            u = (temp_pool[:,0] - self.x.flatten())
         else:
             u = self.mean_val - self.x
         u = u /self.dt
