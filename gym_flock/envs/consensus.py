@@ -30,7 +30,7 @@ class ConsensusEnv(gym.Env):
         self.comm_radius2 = self.comm_radius * self.comm_radius
         self.dt = 0.01 #float(config['system_dt'])
         self.v_max = 10.0 #float(config['max_vel_init'])
-        self.v_bias = 10.0 #5 * self.v_max  # 0.5 * self.v_max
+        self.v_bias = 6.0 #5 * self.v_max  # 0.5 * self.v_max
         self.r_max = 50.0 #float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
 
@@ -85,6 +85,7 @@ class ConsensusEnv(gym.Env):
         #s_costs = -1.0 * np.square(self.x - self.mean_val).flatten() #- np.square(self.u).flatten() * 0.001
         #s_costs =  np.exp(-0.1 * np.square(self.x - self.mean_val).flatten()) #- np.square(self.u).flatten() * 0.001
         #s_costs = -1.0 * np.log(np.square(self.x - self.mean_val) + 0.01)
+        # s_costs =  (self.mean_val - self.x).flatten() * self.u.flatten() #(self.mean_val - self.x).flatten()
         s_costs =  (self.mean_val - self.x).flatten()
         return s_costs #+ np.sum(np.square(self.u)) # todo add an action cost
 
@@ -129,7 +130,7 @@ class ConsensusEnv(gym.Env):
         ################################
         #bias = (np.floor(np.random.random() * 2)*2 - 1) * self.v_bias
         bias = (np.random.random() * 2 - 1) * self.v_bias
-        self.x = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,1)) #+ bias
+        self.x = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,1)) + bias
         self.mean_val = np.mean(self.x)
         self.init_val = self.x
 
