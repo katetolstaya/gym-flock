@@ -24,7 +24,6 @@ class FlockingEnv(gym.Env):
 
         self.fig = None
         self.line1 = None
-        self.filter_len = int(config['filter_length'])
         self.nx_system = 4
         self.n_nodes = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
@@ -35,21 +34,10 @@ class FlockingEnv(gym.Env):
         self.r_max = float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
 
-        self.pooling = [np.nanmean]
-        # if config.getboolean('sum_pooling'):
-        #     self.pooling.append(np.nansum)
-        # if config.getboolean('min_pooling'):
-        #     self.pooling.append(np.nanmin)
-        # if config.getboolean('max_pooling'):
-        #     self.pooling.append(np.nanmax)
-        self.n_pools = len(self.pooling)
-
         # number of features and outputs
         self.n_features = int(config['N_features'])
-        self.nx = int(self.n_features / self.n_pools / self.filter_len)
         self.nu = int(config['N_outputs'])  # outputs
 
-        self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
         self.x = np.zeros((self.n_nodes, self.nx_system))
         self.u = np.zeros((self.n_nodes, self.nu))
         self.mean_vel = np.zeros((self.n_nodes, self.nu))
@@ -65,28 +53,6 @@ class FlockingEnv(gym.Env):
                                             dtype=np.float32)
 
         self.seed()
-
-    def render(self, mode='human'):
-
-        if self.fig is None:
-            plt.ion()
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            line1, = ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
-            ax.plot([0], [0], 'kx')
-            plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
-            plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
-            a = gca()
-            a.set_xticklabels(a.get_xticks(), font)
-            a.set_yticklabels(a.get_yticks(), font)
-            plt.title('GNN Controller')
-            self.fig = fig
-            self.line1 = line1
-
-        self.line1.set_xdata(self.x[:, 0])
-        self.line1.set_ydata(self.x[:, 1])
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -108,7 +74,6 @@ class FlockingEnv(gym.Env):
         x_[:, 3] = x[:, 3] + 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
-        # self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
 
         #return (self._get_obs(), self.costs_list()), self.instant_cost(), False, {}
@@ -122,9 +87,7 @@ class FlockingEnv(gym.Env):
 
     def _get_obs(self):
         return (np.hstack((self.x, self.init_vel)), self.get_connectivity(self.x))
-        # reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
-        # clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        # return clipped.flatten()  # [self.n_leaders:, :]
+
 
     def reset(self):
         x = np.zeros((self.n_nodes, self.nx_system))
@@ -143,7 +106,6 @@ class FlockingEnv(gym.Env):
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
 
             # compute distances between agents
-
             x_t_loc = x[:, 0:2]  # x,y location determines connectivity
 
             a_net = np.sqrt(
@@ -162,8 +124,6 @@ class FlockingEnv(gym.Env):
             self.init_vel = x[:, 2:4]
 
         self.x = x
-        # self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
-        # self.x_agg = self.aggregate(self.x, self.x_agg)
 
         return self._get_obs()
 
@@ -201,97 +161,25 @@ class FlockingEnv(gym.Env):
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         return u
 
-    # def aggregate(self, xt, x_agg):
-    #     """
-    #     Perform aggegration operation for all possible pooling operations using helper functions get_pool and get_comms
-    #     Args:
-    #         x_agg (): Last time step's aggregated info
-    #         xt (): Current state of all agents
+    def render(self, mode='human'):
 
-    #     Returns:
-    #         Aggregated state values
-    #     """
+        if self.fig is None:
+            plt.ion()
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            line1, = ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
+            ax.plot([0], [0], 'kx')
+            plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
+            plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
+            a = gca()
+            a.set_xticklabels(a.get_xticks(), font)
+            a.set_yticklabels(a.get_yticks(), font)
+            plt.title('GNN Controller')
+            self.fig = fig
+            self.line1 = line1
 
-    #     x_features = self.get_x_features(xt)
-    #     a_net = self.get_connectivity(xt)
-    #     for k in range(0, self.n_pools):
-    #         comm_data = self.get_comms(self.get_features(x_agg[:, :, k]), a_net)
-    #         x_agg[:, :, k] = np.hstack((x_features, self.get_pool(comm_data, self.pooling[k])))
-    #     return x_agg
-
-
-    # def get_x_features(self, xt):
-    #     """
-    #     Compute the non-linear features necessary for implementing Turner 2003
-    #     Args:
-    #         xt (): current state of all agents
-
-    #     Returns: matrix of features for each agent
-
-    #     """
-    #     return np.hstack((xt, self.init_vel))
-
-    # def get_features(self, agg):
-    #     """
-    #     Matrix of
-    #     Args:
-    #         agg (): the aggregated matrix from the last time step
-
-    #     Returns: matrix of aggregated features from all nodes at current time
-
-    #     """
-    #     return np.tile(agg[:, :-self.nx].reshape((self.n_nodes, 1, -1)), (1, self.n_nodes, 1))  # TODO check indexing
-
-    # def get_comms(self, mat, a_net):
-    #     """
-    #     Enforces that agents who are not connected in the network cannot observe each others' states
-    #     Args:
-    #         mat (): matrix of state information for the whole graph
-    #         a_net (): adjacency matrix for flock network (weighted networks unsupported for now)
-
-    #     Returns:
-    #         mat (): sparse matrix with NaN values where agents can't communicate
-
-    #     """
-    #     a_net[a_net == 0] = np.nan
-    #     return mat * a_net.reshape(self.n_nodes, self.n_nodes, 1)
-
-    # def get_pool(self, mat, func):
-    #     """
-    #     Perform pooling operations on the matrix of state information. The replacement of values with NaNs for agents who
-    #     can't communicate must already be enforced.
-    #     Args:
-    #         mat (): matrix of state information
-    #         func (): pooling function (np.nansum(), np.nanmin() or np.nanmax()). Must ignore NaNs.
-
-    #     Returns:
-    #         information pooled from neighbors for each agent
-
-    #     """
-    #     temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
-    #     temp_pool[np.isnan(temp_pool)] = 0
-    #     return temp_pool
-
-
-
-    #     x = self.x
-    #     s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
-    #     r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-    #         self.n_nodes)
-    #     p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
-    #     p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
-    #     return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
-
-    # def potential_grad(self, pos_diff, r2):
-    #     """
-    #     Computes the gradient of the potential function for flocking proposed in Turner 2003.
-    #     Args:
-    #         pos_diff (): difference in a component of position among all agents
-    #         r2 (): distance squared between agents
-
-    #     Returns: corresponding component of the gradient of the potential
-
-    #     """
-    #     grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
-    #     grad[r2 > self.comm_radius] = 0
-    #     return grad
+        self.line1.set_xdata(self.x[:, 0])
+        self.line1.set_ydata(self.x[:, 1])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+ 
