@@ -44,7 +44,7 @@ class FlockingEnv(gym.Env):
         self.init_vel = np.zeros((self.n_nodes, self.nu))
 
         # TODO
-        self.max_accel = 40
+        self.max_accel = 1
         self.max_z = 200
 
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_nodes,),
@@ -69,9 +69,9 @@ class FlockingEnv(gym.Env):
         # y position
         x_[:, 1] = x[:, 1] + x[:, 3] * self.dt
         # x velocity
-        x_[:, 2] = x[:, 2] + 0.1 * u[:, 0] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
+        x_[:, 2] = x[:, 2] + u[:, 0] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
         # y velocity
-        x_[:, 3] = x[:, 3] + 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
+        x_[:, 3] = x[:, 3] + u[:, 1] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
         self.u = u
