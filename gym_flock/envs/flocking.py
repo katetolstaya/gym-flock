@@ -2,7 +2,7 @@ import gym
 from gym import spaces, error, utils
 from gym.utils import seeding
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
+# from scipy.spatial.distance import pdist, squareform
 import configparser
 from os import path
 import matplotlib.pyplot as plt
@@ -28,6 +28,7 @@ class FlockingEnv(gym.Env):
         self.nx_system = 4
         self.n_nodes = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
+        self.comm_radius2 = self.comm_radius * self.comm_radius
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
         self.v_bias = self.v_max  # 0.5 * self.v_max
@@ -58,8 +59,9 @@ class FlockingEnv(gym.Env):
         self.max_accel = 40
         self.max_z = 200
 
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features,),
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_nodes,),
+                                       dtype=np.float32)
+        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features * self.n_nodes,),
                                             dtype=np.float32)
 
         self.seed()
@@ -93,6 +95,7 @@ class FlockingEnv(gym.Env):
     def step(self, u):
         x = self.x
         x_ = np.zeros((self.n_nodes, self.nx_system))
+        u = np.reshape(u, (-1, 2))
 
         # u = np.vstack((np.zeros((self.n_leaders, 2)), u))
         # x position
@@ -105,25 +108,23 @@ class FlockingEnv(gym.Env):
         x_[:, 3] = x[:, 3] + 0.1 * u[:, 1] * self.dt + np.random.normal(0, self.std_dev, (self.n_nodes,))
         # TODO - check the 0.1
         self.x = x_
-        self.x_agg = self.aggregate(self.x, self.x_agg)
+        # self.x_agg = self.aggregate(self.x, self.x_agg)
         self.u = u
 
-        amax, cost = self.instant_cost()
-        obs = self._get_obs()
-
-        return (amax, obs), cost, False, {}
+        #return (self._get_obs(), self.costs_list()), self.instant_cost(), False, {}
+        return self._get_obs(), self.instant_cost(), False, {}
 
     def instant_cost(self):  # sum of differences in velocities
-        # return np.sum(np.var(self.x[:, 2:4], axis=0)) #+ np.sum(np.square(self.u)) * 0.00001
+        # return np.sum(np.var(self.x[:, 2:4], axis=0))  # + np.sum(np.square(self.u)) * 0.00001
 
-        costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
-        amax = np.argmin(costs)
-        return amax, costs[amax]
+        s_costs = -1.0 * np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1)
+        return np.sum(s_costs) #+ np.sum(np.square(self.u)) # todo add an action cost
 
     def _get_obs(self):
-        reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
-        clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        return clipped  # [self.n_leaders:, :]
+        return (np.hstack((self.x, self.init_vel)), self.get_connectivity(self.x))
+        # reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
+        # clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
+        # return clipped.flatten()  # [self.n_leaders:, :]
 
     def reset(self):
         x = np.zeros((self.n_nodes, self.nx_system))
@@ -142,8 +143,12 @@ class FlockingEnv(gym.Env):
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
 
             # compute distances between agents
+
             x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-            a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
+
+            a_net = np.sqrt(
+                np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))),
+                       axis=2))
 
             # no self loops
             a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
@@ -157,31 +162,14 @@ class FlockingEnv(gym.Env):
             self.init_vel = x[:, 2:4]
 
         self.x = x
-        self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
-        self.x_agg = self.aggregate(self.x, self.x_agg)
+        # self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
+        # self.x_agg = self.aggregate(self.x, self.x_agg)
 
         return self._get_obs()
 
     def close(self):
         pass
 
-    def aggregate(self, xt, x_agg):
-        """
-        Perform aggegration operation for all possible pooling operations using helper functions get_pool and get_comms
-        Args:
-            x_agg (): Last time step's aggregated info
-            xt (): Current state of all agents
-
-        Returns:
-            Aggregated state values
-        """
-
-        x_features = self.get_x_features(xt)
-        a_net = self.get_connectivity(xt)
-        for k in range(0, self.n_pools):
-            comm_data = self.get_comms(self.get_features(x_agg[:, :, k]), a_net)
-            x_agg[:, :, k] = np.hstack((x_features, self.get_pool(comm_data, self.pooling[k])))
-        return x_agg
 
     def get_connectivity(self, x):
         """
@@ -193,62 +181,12 @@ class FlockingEnv(gym.Env):
 
         """
         x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-        a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
-        a_net = (a_net < self.comm_radius).astype(float)
+        # a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
+        a_net = np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))), axis=2)
+        a_net = (a_net < self.comm_radius2).astype(float)
+        # TODO normalize
         np.fill_diagonal(a_net, 0)
         return a_net
-
-    def get_x_features(self, xt):
-        """
-        Compute the non-linear features necessary for implementing Turner 2003
-        Args:
-            xt (): current state of all agents
-
-        Returns: matrix of features for each agent
-
-        """
-        return np.hstack((xt, self.init_vel))
-
-    def get_features(self, agg):
-        """
-        Matrix of
-        Args:
-            agg (): the aggregated matrix from the last time step
-
-        Returns: matrix of aggregated features from all nodes at current time
-
-        """
-        return np.tile(agg[:, :-self.nx].reshape((self.n_nodes, 1, -1)), (1, self.n_nodes, 1))  # TODO check indexing
-
-    def get_comms(self, mat, a_net):
-        """
-        Enforces that agents who are not connected in the network cannot observe each others' states
-        Args:
-            mat (): matrix of state information for the whole graph
-            a_net (): adjacency matrix for flock network (weighted networks unsupported for now)
-
-        Returns:
-            mat (): sparse matrix with NaN values where agents can't communicate
-
-        """
-        a_net[a_net == 0] = np.nan
-        return mat * a_net.reshape(self.n_nodes, self.n_nodes, 1)
-
-    def get_pool(self, mat, func):
-        """
-        Perform pooling operations on the matrix of state information. The replacement of values with NaNs for agents who
-        can't communicate must already be enforced.
-        Args:
-            mat (): matrix of state information
-            func (): pooling function (np.nansum(), np.nanmin() or np.nanmax()). Must ignore NaNs.
-
-        Returns:
-            information pooled from neighbors for each agent
-
-        """
-        temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
-        temp_pool[np.isnan(temp_pool)] = 0
-        return temp_pool
 
     def controller(self):
         """
@@ -257,25 +195,103 @@ class FlockingEnv(gym.Env):
             x (): the current state
         Returns: the optimal action
         """
-        x = self.x
+        mean_vel = np.mean(self.x[:,2:4], axis=0)
+        u = mean_vel - self.x[:,2:4]
+        u = u * 10
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        return u
 
-        s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
-        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-            self.n_nodes)
-        p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
-        p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
-        return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+    # def aggregate(self, xt, x_agg):
+    #     """
+    #     Perform aggegration operation for all possible pooling operations using helper functions get_pool and get_comms
+    #     Args:
+    #         x_agg (): Last time step's aggregated info
+    #         xt (): Current state of all agents
 
-    def potential_grad(self, pos_diff, r2):
-        """
-        Computes the gradient of the potential function for flocking proposed in Turner 2003.
-        Args:
-            pos_diff (): difference in a component of position among all agents
-            r2 (): distance squared between agents
+    #     Returns:
+    #         Aggregated state values
+    #     """
 
-        Returns: corresponding component of the gradient of the potential
+    #     x_features = self.get_x_features(xt)
+    #     a_net = self.get_connectivity(xt)
+    #     for k in range(0, self.n_pools):
+    #         comm_data = self.get_comms(self.get_features(x_agg[:, :, k]), a_net)
+    #         x_agg[:, :, k] = np.hstack((x_features, self.get_pool(comm_data, self.pooling[k])))
+    #     return x_agg
 
-        """
-        grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
-        grad[r2 > self.comm_radius] = 0
-        return grad
+
+    # def get_x_features(self, xt):
+    #     """
+    #     Compute the non-linear features necessary for implementing Turner 2003
+    #     Args:
+    #         xt (): current state of all agents
+
+    #     Returns: matrix of features for each agent
+
+    #     """
+    #     return np.hstack((xt, self.init_vel))
+
+    # def get_features(self, agg):
+    #     """
+    #     Matrix of
+    #     Args:
+    #         agg (): the aggregated matrix from the last time step
+
+    #     Returns: matrix of aggregated features from all nodes at current time
+
+    #     """
+    #     return np.tile(agg[:, :-self.nx].reshape((self.n_nodes, 1, -1)), (1, self.n_nodes, 1))  # TODO check indexing
+
+    # def get_comms(self, mat, a_net):
+    #     """
+    #     Enforces that agents who are not connected in the network cannot observe each others' states
+    #     Args:
+    #         mat (): matrix of state information for the whole graph
+    #         a_net (): adjacency matrix for flock network (weighted networks unsupported for now)
+
+    #     Returns:
+    #         mat (): sparse matrix with NaN values where agents can't communicate
+
+    #     """
+    #     a_net[a_net == 0] = np.nan
+    #     return mat * a_net.reshape(self.n_nodes, self.n_nodes, 1)
+
+    # def get_pool(self, mat, func):
+    #     """
+    #     Perform pooling operations on the matrix of state information. The replacement of values with NaNs for agents who
+    #     can't communicate must already be enforced.
+    #     Args:
+    #         mat (): matrix of state information
+    #         func (): pooling function (np.nansum(), np.nanmin() or np.nanmax()). Must ignore NaNs.
+
+    #     Returns:
+    #         information pooled from neighbors for each agent
+
+    #     """
+    #     temp_pool = func(mat, axis=0).reshape((self.n_nodes, self.n_features - self.nx))
+    #     temp_pool[np.isnan(temp_pool)] = 0
+    #     return temp_pool
+
+
+
+    #     x = self.x
+    #     s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
+    #     r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
+    #         self.n_nodes)
+    #     p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
+    #     p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
+    #     return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+
+    # def potential_grad(self, pos_diff, r2):
+    #     """
+    #     Computes the gradient of the potential function for flocking proposed in Turner 2003.
+    #     Args:
+    #         pos_diff (): difference in a component of position among all agents
+    #         r2 (): distance squared between agents
+
+    #     Returns: corresponding component of the gradient of the potential
+
+    #     """
+    #     grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
+    #     grad[r2 > self.comm_radius] = 0
+    #     return grad

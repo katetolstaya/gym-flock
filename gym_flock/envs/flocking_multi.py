@@ -208,6 +208,7 @@ class FlockingMultiEnv(gym.Env):
         # a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
         a_net = np.sum(np.square(x_t_loc.reshape((self.n_nodes, 1, 2)) - x_t_loc.reshape((1, self.n_nodes, 2))), axis=2)
         a_net = (a_net < self.comm_radius2).astype(float)
+        # TODO normalize
         np.fill_diagonal(a_net, 0)
         return a_net
 
