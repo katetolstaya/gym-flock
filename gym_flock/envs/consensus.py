@@ -28,7 +28,7 @@ class ConsensusEnv(gym.Env):
         self.n_nodes = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
         self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.dt = 0.01 #float(config['system_dt'])
+        self.dt = 0.001 #float(config['system_dt'])
         self.v_max = 10.0 #float(config['max_vel_init'])
         self.v_bias = 6.0 #5 * self.v_max  # 0.5 * self.v_max
         self.r_max = 50.0 #float(config['max_rad_init'])
@@ -50,7 +50,7 @@ class ConsensusEnv(gym.Env):
         self.init_val = np.zeros((self.n_nodes, self.nu))
 
         # TODO
-        self.max_accel = 5.0
+        self.max_accel = 10.0
         self.max_z = 200
 
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.nu * self.n_nodes,),
