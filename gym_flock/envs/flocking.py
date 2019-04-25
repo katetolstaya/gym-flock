@@ -72,9 +72,9 @@ class FlockingEnv(gym.Env):
 
         # TODO
         # x position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
-        # # y position
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
+        # self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
+        # # # y position
+        # self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
         # x velocity
         self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
         # y velocity
@@ -158,8 +158,9 @@ class FlockingEnv(gym.Env):
         a_net = self.dist2_mat(x)
         a_net = (a_net < self.comm_radius2).astype(float)
         # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
-        a_net = a_net / np.reshape(np.sum(a_net, axis=1), (self.n_agents,1))  # TODO or axis=1? Is the mean in the correct direction?
-        a_net[np.isnan(a_net)] = 0
+        n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # TODO or axis=0? Is the mean in the correct direction?
+        n_neighbors[n_neighbors == 0] = 1
+        a_net = a_net / n_neighbors  
         return a_net
 
     def controller(self):
