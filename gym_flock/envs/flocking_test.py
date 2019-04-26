@@ -2,17 +2,16 @@ import gym
 from gym import spaces, error, utils
 from gym.utils import seeding
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
 import configparser
 from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
-from scipy import spatial
+from sklearn.neighbors import NearestNeighbors
 
+font = {'family': 'sans-serif',
+        'weight': 'bold',
+        'size': 14}
 
-font = {'family' : 'sans-serif',
-        'weight' : 'bold',
-        'size'   : 14}
 
 class FlockingTestEnv(gym.Env):
 
@@ -23,53 +22,186 @@ class FlockingTestEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
-        self.fig = None
-        self.line1 = None
-        self.filter_len = int(config['filter_length'])
+        self.dynamic = False # if the agents are moving or not
+        self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
+        self.degree =  4 # number of nearest neighbors (if 0, use communication range instead)
+
+        # number states per agent
         self.nx_system = 4
-        self.n_nodes = int(config['network_size']) 
+        # numer of observations per agent
+        self.n_features = 6
+        # number of actions per agent
+        self.nu = 2 
+
+        # problem parameters from file
+        self.n_agents = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
+        self.comm_radius2 = self.comm_radius * self.comm_radius
         self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
-        self.v_bias = self.v_max  # 0.5 * self.v_max
+        self.v_bias = self.v_max 
         self.r_max = float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
-        self.des_vel = np.array([1.0,1.0])
-        self.pooling = []
-        if config.getboolean('sum_pooling'):
-            self.pooling.append(np.nansum)
-        if config.getboolean('min_pooling'):
-            self.pooling.append(np.nanmin)
-        if config.getboolean('max_pooling'):
-            self.pooling.append(np.nanmax)
-        self.n_pools = len(self.pooling)
 
-        # number of features and outputs
-        self.n_features = int(config['N_features'])
-        self.nx = int(self.n_features / self.n_pools / self.filter_len)
-        self.nu = int(config['N_outputs'])  # outputs
+        # intitialize state matrices
+        self.x = np.zeros((self.n_agents, self.nx_system))
+        self.u = np.zeros((self.n_agents, self.nu))
+        self.mean_vel = np.zeros((self.n_agents, self.nu))
+        self.init_vel = np.zeros((self.n_agents, self.nu))
+        self.a_net = np.zeros((self.n_agents, self.n_agents))
 
-        self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
-        self.x = np.zeros((self.n_nodes, self.nx_system))
-        self.u = np.zeros((self.n_nodes, self.nu))
-        self.mean_vel = np.zeros((self.n_nodes, self.nu))
+        # TODO : what should the action space be? is [-1,1] OK?
+        self.max_accel = 1 
+        self.gain = 10.0 # TODO - adjust if necessary - may help the NN performance
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+                                       dtype=np.float32)
 
-        # TODO
-        self.max_accel = 40
-        self.max_z = 200  
 
-        # self.b = np.ones((self.n_nodes,1))
+        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
+                                            dtype=np.float32)
 
-        # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_nodes, 2), dtype=np.float32 )
-        # self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(
-        # self.n_nodes, self.nx * self.filter_len * self.n_pools) , dtype=np.float32)
-
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2,) , dtype=np.float32 )
-        self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.n_features, ), dtype=np.float32)
+        self.fig = None
+        self.line1 = None
 
         self.seed()
 
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def step(self, u):
+
+        assert u.shape == (self.n_agents, self.nu)
+        self.u = u
+
+        if self.dynamic:
+            # x position
+            self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
+            # # y position
+            self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
+
+        # x velocity
+        self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
+        # y velocity
+        self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
+
+        return self._get_obs(), self.instant_cost(), False, {}
+
+    def instant_cost(self):  # sum of differences in velocities
+        # TODO adjust to desired reward
+        # action_cost = -1.0 * np.sum(np.square(self.u))
+         #curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
+         versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
+         #return curr_variance + versus_initial_vel
+         return versus_initial_vel
+
+
+    def reset(self):
+        x = np.zeros((self.n_agents, self.nx_system))
+        degree = 0
+        min_dist = 0
+        min_dist_thresh = 0.1  # 0.25
+
+        # generate an initial configuration with all agents connected,
+        # and minimum distance between agents > min_dist_thresh
+        while degree < 2 or min_dist < min_dist_thresh: 
+
+            # randomly initialize the location and velocity of all agents
+            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
+            angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
+            x[:, 0] = length * np.cos(angle)
+            x[:, 1] = length * np.sin(angle)
+
+            bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
+            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
+            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
+
+            # compute distances between agents
+            a_net = self.dist2_mat(x)
+
+            # compute minimum distance between agents and degree of network to check if good initial configuration
+            min_dist = np.sqrt(np.min(np.min(a_net)))
+            a_net = a_net < self.comm_radius2
+            degree = np.min(np.sum(a_net.astype(int), axis=1))
+
+
+        # keep good initialization
+        self.mean_vel = np.mean(x[:, 2:4], axis=0)
+        self.init_vel = x[:, 2:4]
+        self.x = x
+
+        self.a_net = self.get_connectivity(self.x)
+
+        return self._get_obs()
+
+    def _get_obs(self):
+        # state_values = self.x
+        state_values = np.hstack((self.x, self.init_vel))  # initial velocities are part of state to make system observable
+
+        if self.dynamic:
+            state_network = self.get_connectivity(self.x)
+        else:
+            state_network = self.a_net
+
+        return (state_values, state_network)
+
+
+    def dist2_mat(self, x):
+        """
+        Compute squared euclidean distances between agents. Diagonal elements are infinity
+        Args:
+            x (): current state of all agents
+
+        Returns: symmetric matrix of size (n_agents, n_agents) with A_ij the distance between agents i and j
+        """
+
+        x_loc = np.reshape(x[:, 0:2], (self.n_agents,2,1))
+        a_net = np.sum(np.square(np.transpose(x_loc, (0,2,1)) - np.transpose(x_loc, (2,0,1))), axis=2)
+        np.fill_diagonal(a_net, np.Inf)
+        return a_net
+
+
+    def get_connectivity(self, x):
+        """
+        Get the adjacency matrix of the network based on agent locations by computing pairwise distances using pdist
+        Args:
+            x (): current state of all agents
+
+        Returns: adjacency matrix of network
+
+        """
+
+        if self.degree == 0:
+            a_net = self.dist2_mat(x)
+            a_net = (a_net < self.comm_radius2).astype(float)
+        else:
+            neigh = NearestNeighbors(n_neighbors=self.degree)
+            neigh.fit(x[:,2:4])
+            a_net = np.array(neigh.kneighbors_graph(mode='connectivity').todense())
+
+        if self.mean_pooling:
+            # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
+            n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # TODO or axis=0? Is the mean in the correct direction?
+            n_neighbors[n_neighbors == 0] = 1
+            a_net = a_net / n_neighbors 
+
+        return a_net
+
+    def controller(self):
+        """
+        Consensus-based centralized flocking with no obstacle avoidance
+
+        Returns: the optimal action
+        """
+        # TODO implement Tanner 2003?
+        u = np.mean(self.x[:,2:4], axis=0) - self.x[:,2:4]
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        return u
+
     def render(self, mode='human'):
+        """
+        Render the environment with agents as points in 2D space
+        """
 
         if self.fig is None:
             plt.ion()
@@ -91,209 +223,6 @@ class FlockingTestEnv(gym.Env):
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def step(self, u):
-        x = self.x
-        x_ = np.zeros((self.n_nodes, self.nx_system))
-
-        #lets say the network outputs velocities. So first update velocities
-        #Follow this by updating position.  
-        # x velocity
-        x_[:, 2] = x[:, 2] +  0.1 * u[:, 0] + np.random.normal(0, self.std_dev,(self.n_nodes,))
-        # y velocity
-        x_[:, 3] = x[:, 3] +  0.1 * u[:, 1] + np.random.normal(0, self.std_dev,(self.n_nodes,))
-        
-        #Now position update by integrating the updated velocities. 
-        # x position
-        x_[:, 0] = x[:, 0] + x[:, 2] * self.dt
-        # y position
-        x_[:, 1] = x[:, 1] + x[:, 3] * self.dt
-
-        self.x = x_
-        self.x_agg = self.aggregate(self.x, self.x_agg)
-        self.u = u
-
-
-        return self._get_obs(), -self.instant_cost(), False, {}
-
-    def instant_cost(self):  # sum of differences in velocities
-        #say there is a desired velocity 
-        #reward is simply cosine difference between sum(agents heading) and desired heading 
-        #first get average vector of velocities
-        average_agent_vels_x = np.mean(self.x[:,2])
-        average_agent_vels_y = np.mean(self.x[:,3])
-
-        average_agent_vel = np.array([average_agent_vels_x,average_agent_vels_y])
-        reward = spatial.distance.cosine(average_agent_vel,self.des_vel)
-        #-1 if very different, and 1 if exactly same. 
-        return reward 
-
-    def _get_obs(self):
-        reshaped = self.x_agg.reshape((self.n_nodes, self.n_features))
-        clipped = np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-        return clipped #[self.n_leaders:, :]
-
-    def reset(self):
-        x = np.zeros((self.n_nodes, self.nx_system))
-        degree = 0
-        min_dist = 0
-
-        while degree < 2 or min_dist < 0.1:  # < 0.25:  # 0.25:  #0.5: #min_dist < 0.25:
-            # randomly initialize the state of all agents
-            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_nodes,)))
-            angle = np.pi * np.random.uniform(0, 2, size=(self.n_nodes,))
-            x[:, 0] = length * np.cos(angle)
-            x[:, 1] = length * np.sin(angle)
-
-            bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[0]
-            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_nodes,)) + bias[1]
-
-            # compute distances between agents
-            x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-            a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
-
-            # no self loops
-            a_net = a_net + 2 * self.comm_radius * np.eye(self.n_nodes)
-
-            # compute minimum distance between agents and degree of network
-            min_dist = np.min(np.min(a_net))
-            a_net = a_net < self.comm_radius
-            degree = np.min(np.sum(a_net.astype(int), axis=1))
-
-            self.mean_vel = np.mean(x[:,2:4],axis=0)
-
-        self.x = x
-        self.x_agg = np.zeros((self.n_nodes, self.nx * self.filter_len, self.n_pools))
-        self.x_agg = self.aggregate(self.x, self.x_agg)
-
-        return self._get_obs()
-
-    # def render(self, mode='human'):
-    #     pass
-
     def close(self):
         pass
-
-    def aggregate(self, xt, x_agg):
-        """
-        Perform aggegration operation for all possible pooling operations using helper functions get_pool and get_comms
-        Args:
-            x_agg (): Last time step's aggregated info
-            xt (): Current state of all agents
-
-        Returns:
-            Aggregated state values
-        """
-
-        x_features = self.get_x_features(xt)
-        a_net = self.get_connectivity(xt)
-        for k in range(0, self.n_pools):
-            comm_data = self.get_comms(np.dstack((x_features, self.get_features(x_agg[:, :, k]))), a_net)
-            x_agg[:, :, k] = self.get_pool(comm_data, self.pooling[k])
-        return x_agg
-
-    def get_connectivity(self, x):
-        """
-        Get the adjacency matrix of the network based on agent locations by computing pairwise distances using pdist
-        Args:
-            x (): current states of all agents
-
-        Returns: adjacency matrix of network
-
-        """
-        x_t_loc = x[:, 0:2]  # x,y location determines connectivity
-        a_net = squareform(pdist(x_t_loc.reshape((self.n_nodes, 2)), 'euclidean'))
-        a_net = (a_net < self.comm_radius).astype(float)
-        np.fill_diagonal(a_net, 0)
-        return a_net
-
-    def get_x_features(self, xt):
-        """
-        Compute the non-linear features necessary for implementing Turner 2003
-        Args:
-            xt (): current state of all agents
-
-        Returns: matrix of features for each agent
-
-        """
-
-        diff = xt.reshape((self.n_nodes, 1, self.nx_system)) - xt.reshape((1, self.n_nodes, self.nx_system))
-        r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1]) + np.eye(
-            self.n_nodes)
-        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
-                          diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
-
-    def get_features(self, agg):
-        """
-        Matrix of
-        Args:
-            agg (): the aggregated matrix from the last time step
-
-        Returns: matrix of aggregated features from all nodes at current time
-
-        """
-        return np.tile(agg[:, :-self.nx].reshape((self.n_nodes, 1, -1)), (1, self.n_nodes, 1))  # TODO check indexing
-
-    def get_comms(self, mat, a_net):
-        """
-        Enforces that agents who are not connected in the network cannot observe each others' states
-        Args:
-            mat (): matrix of state information for the whole graph
-            a_net (): adjacency matrix for flock network (weighted networks unsupported for now)
-
-        Returns:
-            mat (): sparse matrix with NaN values where agents can't communicate
-
-        """
-        a_net[a_net == 0] = np.nan
-        return mat * a_net.reshape(self.n_nodes, self.n_nodes, 1)
-
-    def get_pool(self, mat, func):
-        """
-        Perform pooling operations on the matrix of state information. The replacement of values with NaNs for agents who
-        can't communicate must already be enforced.
-        Args:
-            mat (): matrix of state information
-            func (): pooling function (np.nansum(), np.nanmin() or np.nanmax()). Must ignore NaNs.
-
-        Returns:
-            information pooled from neighbors for each agent
-
-        """
-        return func(mat, axis=1).reshape((self.n_nodes, self.n_features))  # TODO check this axis = 1
-
-    def controller(self):
-        """
-        The controller for flocking from Turner 2003.
-        Args:
-            x (): the current state
-        Returns: the optimal action
-        """
-        x = self.x
-
-        s_diff = x.reshape((self.n_nodes, 1, self.nx_system)) - x.reshape((1, self.n_nodes, self.nx_system))
-        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-            self.n_nodes)
-        p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
-        p_sum = np.nansum(p, axis=1).reshape((self.n_nodes, self.nx_system + 2))
-        return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
-
-    def potential_grad(self, pos_diff, r2):
-        """
-        Computes the gradient of the potential function for flocking proposed in Turner 2003.
-        Args:
-            pos_diff (): difference in a component of position among all agents
-            r2 (): distance squared between agents
-
-        Returns: corresponding component of the gradient of the potential
-
-        """
-        grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
-        grad[r2 > self.comm_radius] = 0
-        return grad
-
+ 
