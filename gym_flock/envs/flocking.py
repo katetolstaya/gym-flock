@@ -21,6 +21,9 @@ class FlockingEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
+        self.dynamic = False # if the agents are moving or not
+        self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
+
         # number states per agent
         self.nx_system = 4
         # numer of observations per agent
@@ -44,6 +47,7 @@ class FlockingEnv(gym.Env):
         self.u = np.zeros((self.n_agents, self.nu))
         self.mean_vel = np.zeros((self.n_agents, self.nu))
         self.init_vel = np.zeros((self.n_agents, self.nu))
+        self.a_net = np.zeros((self.n_agents, self.n_agents))
 
         # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1 
@@ -70,11 +74,11 @@ class FlockingEnv(gym.Env):
         assert u.shape == (self.n_agents, self.nu)
         self.u = u
 
-        # TODO
-        # x position
-        # self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
-        # # # y position
-        # self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
+        if self.dynamic:
+            # x position
+            self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
+            # y position
+            self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
         # x velocity
         self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
         # y velocity
@@ -123,12 +127,17 @@ class FlockingEnv(gym.Env):
         self.mean_vel = np.mean(x[:, 2:4], axis=0)
         self.init_vel = x[:, 2:4]
         self.x = x
+        self.a_net = self.get_connectivity(self.x)
         return self._get_obs()
 
     def _get_obs(self):
         # state_values = self.x
         state_values = np.hstack((self.x, self.init_vel))  # initial velocities are part of state to make system observable
-        state_network = self.get_connectivity(self.x)
+        if self.dynamic:
+            state_network = self.get_connectivity(self.x)
+        else:
+            state_network = self.a_net
+
         return (state_values, state_network)
 
 
@@ -157,10 +166,13 @@ class FlockingEnv(gym.Env):
         """
         a_net = self.dist2_mat(x)
         a_net = (a_net < self.comm_radius2).astype(float)
-        # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
-        n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # TODO or axis=0? Is the mean in the correct direction?
-        n_neighbors[n_neighbors == 0] = 1
-        a_net = a_net / n_neighbors  
+
+        if self.mean_pooling:
+            # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
+            n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # TODO or axis=0? Is the mean in the correct direction?
+            n_neighbors[n_neighbors == 0] = 1
+            a_net = a_net / n_neighbors 
+
         return a_net
 
     def controller(self):
