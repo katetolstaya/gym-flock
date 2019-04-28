@@ -30,3 +30,9 @@ register(
     max_episode_steps=500,
 )
 
+register(
+    id='FormationFlying-v0',
+    entry_point='gym_flock.envs:FormationFlyingEnv',
+    max_episode_steps=500,
+)
+
