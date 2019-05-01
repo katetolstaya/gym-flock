@@ -93,10 +93,10 @@ class FlockingRelativeEnv(gym.Env):
     def instant_cost(self):  # sum of differences in velocities
         # TODO adjust to desired reward
         # action_cost = -1.0 * np.sum(np.square(self.u))
-         #curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
-         versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
-         #return curr_variance + versus_initial_vel
-         return versus_initial_vel
+         curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
+         return curr_variance
+         # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
+         # return versus_initial_vel
 
 
     def reset(self):
