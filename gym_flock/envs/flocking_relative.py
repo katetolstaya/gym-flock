@@ -23,7 +23,7 @@ class FlockingRelativeEnv(gym.Env):
 
         self.dynamic = True # if the agents are moving or not
         self.mean_pooling = False # normalize the adjacency matrix by the number of neighbors or not
-        self.centralized = True
+        self.centralized = False
 
         # number states per agent
         self.nx_system = 4
