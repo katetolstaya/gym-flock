@@ -12,6 +12,12 @@ register(
     max_episode_steps=200,
 )
 
+register(
+    id='FlockingRelative-v0',
+    entry_point='gym_flock.envs:FlockingRelativeEnv',
+    max_episode_steps=200,
+)
+
 
 register(
     id='LQR-v0',
