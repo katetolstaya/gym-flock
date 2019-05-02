@@ -19,7 +19,7 @@ class FormationFlyingEnv(gym.Env):
 
     def __init__(self):
 
-        config_file = path.join(path.dirname(__file__), "params_flock.cfg")
+        config_file = path.join(path.dirname(__file__), "formation_flying.cfg")
         config = configparser.ConfigParser()
         config.read(config_file)
         config = config['flock']
@@ -133,7 +133,7 @@ class FormationFlyingEnv(gym.Env):
             # randomly initialize the location and velocity of all agents
             #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
             #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
-            N = np.round(self.n_agents/3).astype(int)
+            N# = np.round(self.n_agents/3).astype(int)
             #pdb.set_trace()
             
             #x1 = np.linspace(-2, 2, N, endpoint=True)
