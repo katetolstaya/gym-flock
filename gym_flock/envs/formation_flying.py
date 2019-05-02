@@ -27,7 +27,7 @@ class FormationFlyingEnv(gym.Env):
         self.dynamic = True # if the agents are moving or not
         self.mean_pooling = False # normalize the adjacency matrix by the number of neighbors or not
         #self.degree =  4 # number of nearest neighbors (if 0, use communication range instead)
-        self.degree = 0 
+        self.degree = 2 
         # number states per agent
         self.nx_system = 4
         # numer of observations per agent
@@ -128,12 +128,12 @@ class FormationFlyingEnv(gym.Env):
         # generate agents along an equilateral triangle (-2,0),(2,0),(0,2)
         # and minimum distance between agents > min_dist_thresh
 
-        while degree < 2 or min_dist < min_dist_thresh: 
+        while (self.degree == 0 and degree < 2) or min_dist < min_dist_thresh: 
 
             # randomly initialize the location and velocity of all agents
             #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
             #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
-            N# = np.round(self.n_agents/3).astype(int)
+            #N = np.round(self.n_agents/3).astype(int)
             #pdb.set_trace()
             
             #x1 = np.linspace(-2, 2, N, endpoint=True)
@@ -168,6 +168,7 @@ class FormationFlyingEnv(gym.Env):
             min_dist = np.sqrt(np.min(np.min(a_net)))
             a_net = a_net < self.comm_radius2
             degree = np.min(np.sum(a_net.astype(int), axis=1))
+
 
             #pdb.set_trace()
         # keep good initialization
