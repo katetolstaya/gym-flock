@@ -109,27 +109,30 @@ class FormationFlyingEnv(gym.Env):
         # and minimum distance between agents > min_dist_thresh
 
         while degree < 2 or min_dist < min_dist_thresh: 
-
+            
             # randomly initialize the location and velocity of all agents
             #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
             #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
             N = np.round(self.n_agents/3).astype(int)
             #pdb.set_trace()
             
-            x1 = np.linspace(-2, 2, N, endpoint=True)
-            x1_ = np.linspace(-2,0,N,endpoint = True)
-            x11_ = np.linspace(0,2,N,endpoint = True)
+            #x1 = np.linspace(-2, 2, N, endpoint=True)
+            #x1_ = np.linspace(-2,0,N,endpoint = True)
+            #x11_ = np.linspace(0,2,N,endpoint = True)
             
-            y = np.zeros(N)
-            y1 = np.linspace(0,2, N, endpoint=True)
-            y2 = np.linspace(2,0, N, endpoint=True)
+            #y = np.zeros(N)
+            #y1 = np.linspace(0,2, N, endpoint=True)
+            #y2 = np.linspace(2,0, N, endpoint=True)
             
-            xpoints = np.asarray((x1,x1_,x11_))
-            ypoints = np.asarray((y,y1,y2))
+            #xpoints = np.asarray((x1,x1_,x11_))
+            #ypoints = np.asarray((y,y1,y2))
+            xpoints = np.array((-2,0,2))
+            ypoints = np.array((0,2,0))
 
-            print ("happening")
-            x[:, 0] = np.reshape(xpoints,-1)
-            x[:, 1] = np.reshape(ypoints,-1)
+            #x[:, 0] = np.reshape(xpoints,-1)
+            #x[:, 1] = np.reshape(ypoints,-1)
+            x[:,0] = xpoints
+            x[:,1] = ypoints
 
             bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
             x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
