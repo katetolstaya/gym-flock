@@ -28,7 +28,7 @@ class FlockingRelativeEnv(gym.Env):
         # number states per agent
         self.nx_system = 4
         # numer of observations per agent
-        self.n_features = 2
+        self.n_features = 4
         # number of actions per agent
         self.nu = 2 
 
@@ -146,7 +146,7 @@ class FlockingRelativeEnv(gym.Env):
         x_features = self.get_x_features()
         state_values = np.sum(x_features * state_network_temp, axis=1).reshape((self.n_agents, self.n_features))
 
-        state_values = np.hstack((state_values, self.x[:,2:4]))
+        #state_values = np.hstack((state_values, self.x[:,2:4]))
 
         return (state_values, state_network)
 
@@ -163,8 +163,11 @@ class FlockingRelativeEnv(gym.Env):
         diff = xt.reshape((self.n_agents, 1, self.nx_system)) - xt.reshape((1, self.n_agents, self.nx_system))
         r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1]) + np.eye(
             self.n_agents)
-        return np.dstack((np.divide(diff[:, :, 0], r2),
-                           np.divide(diff[:, :, 1], r2)))
+        # return np.dstack((np.divide(diff[:, :, 0], r2),
+        #                    np.divide(diff[:, :, 1], r2)))
+
+        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], r2),
+                          diff[:, :, 3], np.divide(diff[:, :, 1], r2)))
 
         # return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
         #                   diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
