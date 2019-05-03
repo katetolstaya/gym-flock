@@ -27,7 +27,7 @@ class FormationFlyingEnv(gym.Env):
         self.dynamic = True # if the agents are moving or not
         self.mean_pooling = False # normalize the adjacency matrix by the number of neighbors or not
         #self.degree =  4 # number of nearest neighbors (if 0, use communication range instead)
-        self.degree = 2 
+        self.degree = 1 
         # number states per agent
         self.nx_system = 4
         # numer of observations per agent
@@ -54,7 +54,7 @@ class FormationFlyingEnv(gym.Env):
 
         # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1 
-        self.gain = 10.0 # TODO - adjust if necessary - may help the NN performance
+        self.gain = 1.0 # TODO - adjust if necessary - may help the NN performance
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
 
@@ -117,10 +117,10 @@ class FormationFlyingEnv(gym.Env):
 
         #set arbitrary goal 
         self.goal_x1 = 0
-        self.goal_y1 = 5
+        self.goal_y1 = 3
 
         self.goal_x2 = -2
-        self.goal_y2 = 3
+        self.goal_y2 = 2
 
         self.goal_x3 = 2
         self.goal_y3 = 3
@@ -128,46 +128,51 @@ class FormationFlyingEnv(gym.Env):
         # generate agents along an equilateral triangle (-2,0),(2,0),(0,2)
         # and minimum distance between agents > min_dist_thresh
 
-        while (self.degree == 0 and degree < 2) or min_dist < min_dist_thresh: 
+        #while (self.degree == 0 and degree < 2) or min_dist < min_dist_thresh: 
+        #while (self.degree == 0) or min_dist < min_dist_thresh: 
+        # randomly initialize the location and velocity of all agents
+        #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
+        #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
+        #N = np.round(self.n_agents/3).astype(int)
+        #pdb.set_trace()
+        
+        #x1 = np.linspace(-2, 2, N, endpoint=True)
+        #x1_ = np.linspace(-2,0,N,endpoint = True)
+        #x11_ = np.linspace(0,2,N,endpoint = True)
+        
+        #y = np.zeros(N)
+        #y1 = np.linspace(0,2, N, endpoint=True)
+        #y2 = np.linspace(2,0, N, endpoint=True)
+        
+        #xpoints = np.asarray((x1,x1_,x11_))
+        #ypoints = np.asarray((y,y1,y2))
+        #xpoints = np.array((0,-2,2))
+        #ypoints = np.array((2,0,0))
+        xpoints = np.array((0,-2))
+        ypoints = np.array((2,0))
 
-            # randomly initialize the location and velocity of all agents
-            #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
-            #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
-            #N = np.round(self.n_agents/3).astype(int)
-            #pdb.set_trace()
-            
-            #x1 = np.linspace(-2, 2, N, endpoint=True)
-            #x1_ = np.linspace(-2,0,N,endpoint = True)
-            #x11_ = np.linspace(0,2,N,endpoint = True)
-            
-            #y = np.zeros(N)
-            #y1 = np.linspace(0,2, N, endpoint=True)
-            #y2 = np.linspace(2,0, N, endpoint=True)
-            
-            #xpoints = np.asarray((x1,x1_,x11_))
-            #ypoints = np.asarray((y,y1,y2))
-            xpoints = np.array((0,-2,2))
-            ypoints = np.array((2,0,0))
+        #x[:, 0] = np.reshape(xpoints,-1)
+        #x[:, 1] = np.reshape(ypoints,-1)
+        x[:,0] = xpoints
+        x[:,1] = ypoints
 
-            #x[:, 0] = np.reshape(xpoints,-1)
-            #x[:, 1] = np.reshape(ypoints,-1)
-            x[:,0] = xpoints
-            x[:,1] = ypoints
+        bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
+        x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
+        x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
 
-            bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
-            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
+        #x[:,4] = np.array((self.goal_x1,self.goal_x2,self.goal_x3))
+        #x[:,5] = np.array((self.goal_y1,self.goal_y2,self.goal_y3))
 
-            x[:,4] = np.array((self.goal_x1,self.goal_x2,self.goal_x3))
-            x[:,5] = np.array((self.goal_y1,self.goal_y2,self.goal_y3))
-            
-            # compute distances between agents
-            a_net = self.dist2_mat(x)
+        x[:,4] = np.array((self.goal_x1,self.goal_x2))
+        x[:,5] = np.array((self.goal_y1,self.goal_x3))
+        
+        # compute distances between agents
+        a_net = self.dist2_mat(x)
 
-            # compute minimum distance between agents and degree of network to check if good initial configuration
-            min_dist = np.sqrt(np.min(np.min(a_net)))
-            a_net = a_net < self.comm_radius2
-            degree = np.min(np.sum(a_net.astype(int), axis=1))
+        # compute minimum distance between agents and degree of network to check if good initial configuration
+        min_dist = np.sqrt(np.min(np.min(a_net)))
+        a_net = a_net < self.comm_radius2
+        degree = np.min(np.sum(a_net.astype(int), axis=1))
 
 
             #pdb.set_trace()
