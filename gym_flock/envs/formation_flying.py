@@ -54,7 +54,7 @@ class FormationFlyingEnv(gym.Env):
 
         # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1 
-        self.gain = 10.0 # TODO - adjust if necessary - may help the NN performance
+        self.gain = 1.0 # TODO - adjust if necessary - may help the NN performance
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
 
@@ -74,6 +74,7 @@ class FormationFlyingEnv(gym.Env):
     def step(self, u):
 
         assert u.shape == (self.n_agents, self.nu)
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u
 
         if self.dynamic:
@@ -98,7 +99,7 @@ class FormationFlyingEnv(gym.Env):
         robot_goalys = self.x[:,5]
 
         diff = (robot_xs - robot_goalxs)**2 + (robot_ys - robot_goalys)**2
-        return -np.max(diff)
+        return -np.sum(diff)
         #pdb.set_trace()
         # TODO adjust to desired reward
         # action_cost = -1.0 * np.sum(np.square(self.u))
