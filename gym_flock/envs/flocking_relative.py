@@ -22,13 +22,13 @@ class FlockingRelativeEnv(gym.Env):
         config = config['flock']
 
         self.dynamic = True # if the agents are moving or not
-        self.mean_pooling = False # normalize the adjacency matrix by the number of neighbors or not
+        self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
 
         # number states per agent
         self.nx_system = 4
         # numer of observations per agent
-        self.n_features = 4
+        self.n_features = 6
         # number of actions per agent
         self.nu = 2 
 
@@ -36,7 +36,7 @@ class FlockingRelativeEnv(gym.Env):
         self.n_agents = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
         self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.dt = 0.02  #float(config['system_dt'])
+        self.dt = 0.01  #float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
         self.v_bias = self.v_max 
         self.r_max = float(config['max_rad_init'])
@@ -103,7 +103,7 @@ class FlockingRelativeEnv(gym.Env):
         x = np.zeros((self.n_agents, self.nx_system))
         degree = 0
         min_dist = 0
-        min_dist_thresh = 0.25  # 0.25
+        min_dist_thresh = 0.2  # 0.25
 
         # generate an initial configuration with all agents connected,
         # and minimum distance between agents > min_dist_thresh
@@ -166,11 +166,11 @@ class FlockingRelativeEnv(gym.Env):
         # return np.dstack((np.divide(diff[:, :, 0], r2),
         #                    np.divide(diff[:, :, 1], r2)))
 
-        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], r2),
-                          diff[:, :, 3], np.divide(diff[:, :, 1], r2)))
+        # return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], r2),
+        #                   diff[:, :, 3], np.divide(diff[:, :, 1], r2)))
 
-        # return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
-        #                   diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
+        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
+                          diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
 
 
     def dist2_mat(self, x):
@@ -232,7 +232,9 @@ class FlockingRelativeEnv(gym.Env):
         if not self.centralized:
             p = self.get_comms(p, self.get_connectivity(x))
         p_sum = np.nansum(p, axis=1).reshape((self.n_agents, self.nx_system + 2))
-        return np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+        controls =  np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+        #controls = np.clip(controls, -10, 10)
+        return controls
 
     def potential_grad(self, pos_diff, r2):
         """
