@@ -61,6 +61,8 @@ class FlockingRelativeEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
                                             dtype=np.float32)
 
+        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
+
         self.fig = None
         self.line1 = None
 
@@ -93,8 +95,16 @@ class FlockingRelativeEnv(gym.Env):
     def instant_cost(self):  # sum of differences in velocities
         # TODO adjust to desired reward
         # action_cost = -1.0 * np.sum(np.square(self.u))
-         curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
-         return curr_variance
+
+        x = self.x
+        s_diff = x.reshape((self.n_agents, 1, self.nx_system)) - x.reshape((1, self.n_agents, self.nx_system))
+        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
+            self.n_agents)
+        pot = self.potential(r2)
+
+
+        curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
+        return curr_variance + pot
          # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
          # return versus_initial_vel
 
@@ -233,7 +243,7 @@ class FlockingRelativeEnv(gym.Env):
             p = self.get_comms(p, self.get_connectivity(x))
         p_sum = np.nansum(p, axis=1).reshape((self.n_agents, self.nx_system + 2))
         controls =  np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
-        #controls = np.clip(controls, -10, 10)
+        controls = np.clip(controls, -100, 100)
         return controls
 
     def potential_grad(self, pos_diff, r2):
@@ -249,7 +259,15 @@ class FlockingRelativeEnv(gym.Env):
         # r2 = r2 + 1e-4 * np.ones((self.n_agents, self.n_agents))  # TODO - is this necessary?
         grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
         grad[r2 > self.comm_radius] = 0
-        return grad
+        return grad 
+
+    def potential(self, r2):
+
+        p = np.reciprocal(r2) + np.log(r2)
+        p[r2 > self.comm_radius2] = self.vr
+        np.fill_diagonal(p, 0)
+
+        return -0.0001 * np.sum(np.sum(p)) 
 
 
     def render(self, mode='human'):
