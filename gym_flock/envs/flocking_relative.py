@@ -36,7 +36,7 @@ class FlockingRelativeEnv(gym.Env):
         self.n_agents = int(config['network_size'])
         self.comm_radius = float(config['comm_radius'])
         self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.dt = 0.01  #float(config['system_dt'])
+        self.dt = float(config['system_dt'])
         self.v_max = float(config['max_vel_init'])
         self.v_bias = self.v_max 
         self.r_max = float(config['max_rad_init'])
@@ -113,7 +113,7 @@ class FlockingRelativeEnv(gym.Env):
         x = np.zeros((self.n_agents, self.nx_system))
         degree = 0
         min_dist = 0
-        min_dist_thresh = 0.2  # 0.25
+        min_dist_thresh = 0.1  # 0.25
 
         # generate an initial configuration with all agents connected,
         # and minimum distance between agents > min_dist_thresh
@@ -125,9 +125,10 @@ class FlockingRelativeEnv(gym.Env):
             x[:, 0] = length * np.cos(angle)
             x[:, 1] = length * np.sin(angle)
 
+
             bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
-            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
+            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0] 
+            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1] 
 
             # compute distances between agents
             a_net = self.dist2_mat(x)
@@ -152,7 +153,7 @@ class FlockingRelativeEnv(gym.Env):
         else:
             state_network = self.a_net
 
-        state_network_temp = state_network.reshape(self.n_agents, self.n_agents, 1)
+        state_network_temp = self.get_connectivity(self.x, False).reshape(self.n_agents, self.n_agents, 1)
         x_features = self.get_x_features()
         state_values = np.sum(x_features * state_network_temp, axis=1).reshape((self.n_agents, self.n_features))
 
@@ -197,7 +198,7 @@ class FlockingRelativeEnv(gym.Env):
         return a_net
 
 
-    def get_connectivity(self, x):
+    def get_connectivity(self, x, mean_pooling=True):
         """
         Get the adjacency matrix of the network based on agent locations by computing pairwise distances using pdist
         Args:
@@ -209,9 +210,9 @@ class FlockingRelativeEnv(gym.Env):
         a_net = self.dist2_mat(x)
         a_net = (a_net < self.comm_radius2).astype(float)
 
-        if self.mean_pooling:
+        if self.mean_pooling and mean_pooling:
             # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
-            n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # TODO or axis=0? Is the mean in the correct direction?
+            n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # correct - checked this
             n_neighbors[n_neighbors == 0] = 1
             a_net = a_net / n_neighbors 
 
