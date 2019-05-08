@@ -21,7 +21,6 @@ class FlockingRelativeEnv(gym.Env):
         config.read(config_file)
         config = config['flock']
 
-        self.dynamic = True # if the agents are moving or not
         self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
 
@@ -79,32 +78,48 @@ class FlockingRelativeEnv(gym.Env):
         #u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u
 
-
-        if self.dynamic:
-            # x position
-            self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
-            # y position
-            self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
+        # x position
+        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
+        # y position
+        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
         # x velocity
         self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
         # y velocity
         self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
 
-        return self._get_obs(), self.instant_cost(), False, {}
+        self.compute_helpers()
+
+        return (self.state_values, self.state_network), self.instant_cost(), False, {}
+
+    def compute_helpers(self):
+
+        self.diff = self.x.reshape((self.n_agents, 1, self.nx_system)) - self.x.reshape((1, self.n_agents, self.nx_system))
+        self.r2 =  np.multiply(self.diff[:, :, 0], self.diff[:, :, 0]) + np.multiply(self.diff[:, :, 1], self.diff[:, :, 1])
+        np.fill_diagonal(self.r2, np.Inf)
+
+        self.adj_mat = (self.r2 < self.comm_radius2).astype(float)
+
+        # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
+        n_neighbors = np.reshape(np.sum(self.adj_mat, axis=1), (self.n_agents,1)) # correct - checked this
+        n_neighbors[n_neighbors == 0] = 1
+        self.adj_mat_mean = self.adj_mat / n_neighbors 
+
+        self.x_features = np.dstack((self.diff[:, :, 2], np.divide(self.diff[:, :, 0], np.multiply(self.r2, self.r2)), np.divide(self.diff[:, :, 0], self.r2),
+                          self.diff[:, :, 3], np.divide(self.diff[:, :, 1], np.multiply(self.r2, self.r2)), np.divide(self.diff[:, :, 1], self.r2)))
+
+
+        self.state_values = np.sum(self.x_features * self.adj_mat.reshape(self.n_agents, self.n_agents, 1), axis=1)
+        self.state_values = self.state_values.reshape((self.n_agents, self.n_features))
+
+        if self.mean_pooling:
+            self.state_network = self.adj_mat_mean
+        else:
+            self.state_network = self.adj_mat
+
 
     def instant_cost(self):  # sum of differences in velocities
-        # TODO adjust to desired reward
-        # action_cost = -1.0 * np.sum(np.square(self.u))
-
-        x = self.x
-        s_diff = x.reshape((self.n_agents, 1, self.nx_system)) - x.reshape((1, self.n_agents, self.nx_system))
-        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-            self.n_agents)
-        pot = self.potential(r2)
-
-
         curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
-        return curr_variance + pot
+        return curr_variance + self.potential(self.r2)
          # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
          # return versus_initial_vel
 
@@ -131,7 +146,9 @@ class FlockingRelativeEnv(gym.Env):
             x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1] 
 
             # compute distances between agents
-            a_net = self.dist2_mat(x)
+            x_loc = np.reshape(x[:, 0:2], (self.n_agents,2,1))
+            a_net = np.sum(np.square(np.transpose(x_loc, (0,2,1)) - np.transpose(x_loc, (2,0,1))), axis=2)
+            np.fill_diagonal(a_net, np.Inf)
 
             # compute minimum distance between agents and degree of network to check if good initial configuration
             min_dist = np.sqrt(np.min(np.min(a_net)))
@@ -142,107 +159,22 @@ class FlockingRelativeEnv(gym.Env):
         self.mean_vel = np.mean(x[:, 2:4], axis=0)
         self.init_vel = x[:, 2:4]
         self.x = x
-        self.a_net = self.get_connectivity(self.x)
-        return self._get_obs()
-
-    def _get_obs(self):
-        # state_values = self.x
-        #state_values = np.hstack((self.x, self.init_vel))  # initial velocities are part of state to make system observable
-        if self.dynamic:
-            state_network = self.get_connectivity(self.x)
-        else:
-            state_network = self.a_net
-
-        state_network_temp = self.get_connectivity(self.x, False).reshape(self.n_agents, self.n_agents, 1)
-        x_features = self.get_x_features()
-        state_values = np.sum(x_features * state_network_temp, axis=1).reshape((self.n_agents, self.n_features))
-
-        #state_values = np.hstack((state_values, self.x[:,2:4]))
-
-        return (state_values, state_network)
-
-    def get_comms(self, mat, a_net):
-        a_net[a_net == 0] = np.nan
-        return mat * a_net.reshape(self.n_agents, self.n_agents, 1)
-
-    def get_x_features(self):
-        """
-        Compute the non-linear features necessary for implementing Turner 2003s
-        Returns: matrix of features for each agent
-        """
-        xt = self.x
-        diff = xt.reshape((self.n_agents, 1, self.nx_system)) - xt.reshape((1, self.n_agents, self.nx_system))
-        r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1]) + np.eye(
-            self.n_agents)
-        # return np.dstack((np.divide(diff[:, :, 0], r2),
-        #                    np.divide(diff[:, :, 1], r2)))
-
-        # return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], r2),
-        #                   diff[:, :, 3], np.divide(diff[:, :, 1], r2)))
-
-        return np.dstack((diff[:, :, 2], np.divide(diff[:, :, 0], np.multiply(r2, r2)), np.divide(diff[:, :, 0], r2),
-                          diff[:, :, 3], np.divide(diff[:, :, 1], np.multiply(r2, r2)), np.divide(diff[:, :, 1], r2)))
-
-
-    def dist2_mat(self, x):
-        """
-        Compute squared euclidean distances between agents. Diagonal elements are infinity
-        Args:
-            x (): current state of all agents
-
-        Returns: symmetric matrix of size (n_agents, n_agents) with A_ij the distance between agents i and j
-        """
-        x_loc = np.reshape(x[:, 0:2], (self.n_agents,2,1))
-        a_net = np.sum(np.square(np.transpose(x_loc, (0,2,1)) - np.transpose(x_loc, (2,0,1))), axis=2)
-        np.fill_diagonal(a_net, np.Inf)
-        return a_net
-
-
-    def get_connectivity(self, x, mean_pooling=True):
-        """
-        Get the adjacency matrix of the network based on agent locations by computing pairwise distances using pdist
-        Args:
-            x (): current state of all agents
-
-        Returns: adjacency matrix of network
-
-        """
-        a_net = self.dist2_mat(x)
-        a_net = (a_net < self.comm_radius2).astype(float)
-
-        if self.mean_pooling and mean_pooling:
-            # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
-            n_neighbors = np.reshape(np.sum(a_net, axis=1), (self.n_agents,1)) # correct - checked this
-            n_neighbors[n_neighbors == 0] = 1
-            a_net = a_net / n_neighbors 
-
-        return a_net
-
-    # def controller(self):
-    #     """
-    #     Consensus-based centralized flocking with no obstacle avoidance
-
-    #     Returns: the optimal action
-    #     """
-    #     # TODO implement Tanner 2003?
-    #     u = np.mean(self.x[:,2:4], axis=0) - self.x[:,2:4]
-    #     u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-    #     return u
-
+        #self.a_net = self.get_connectivity(self.x)
+        self.compute_helpers()
+        return (self.state_values, self.state_network)
 
     def controller(self):
         """
         The controller for flocking from Turner 2003.
         Returns: the optimal action
         """
-        x = self.x
-        s_diff = x.reshape((self.n_agents, 1, self.nx_system)) - x.reshape((1, self.n_agents, self.nx_system))
-        r2 = np.multiply(s_diff[:, :, 0], s_diff[:, :, 0]) + np.multiply(s_diff[:, :, 1], s_diff[:, :, 1]) + np.eye(
-            self.n_agents)
-        p = np.dstack((s_diff, self.potential_grad(s_diff[:, :, 0], r2), self.potential_grad(s_diff[:, :, 1], r2)))
+
+        # TODO use the helper quantities here more? 
+        potentials = np.dstack((self.diff, self.potential_grad(self.diff[:, :, 0], self.r2), self.potential_grad(self.diff[:, :, 1], self.r2)))
         if not self.centralized:
-            p = self.get_comms(p, self.get_connectivity(x))
-        p_sum = np.nansum(p, axis=1).reshape((self.n_agents, self.nx_system + 2))
+            potentials = potentials * self.a_net.reshape(self.n_agents, self.n_agents, 1) 
+
+        p_sum = np.sum(potentials, axis=1).reshape((self.n_agents, self.nx_system + 2))
         controls =  np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
         controls = np.clip(controls, -100, 100)
         return controls
@@ -257,17 +189,14 @@ class FlockingRelativeEnv(gym.Env):
         Returns: corresponding component of the gradient of the potential
 
         """
-        # r2 = r2 + 1e-4 * np.ones((self.n_agents, self.n_agents))  # TODO - is this necessary?
         grad = -2.0 * np.divide(pos_diff, np.multiply(r2, r2)) + 2 * np.divide(pos_diff, r2)
         grad[r2 > self.comm_radius] = 0
         return grad 
 
     def potential(self, r2):
-
         p = np.reciprocal(r2) + np.log(r2)
         p[r2 > self.comm_radius2] = self.vr
         np.fill_diagonal(p, 0)
-
         return -0.0001 * np.sum(np.sum(p)) 
 
 
@@ -275,7 +204,6 @@ class FlockingRelativeEnv(gym.Env):
         """
         Render the environment with agents as points in 2D space
         """
-
         if self.fig is None:
             plt.ion()
             fig = plt.figure()
