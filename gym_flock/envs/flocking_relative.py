@@ -11,6 +11,9 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
+# TODO: add functions to change # of agents, comm radius, and initial velocity, and initial radius (and then reset)
+# and adjust the initialization radius accordingly
+
 
 class FlockingRelativeEnv(gym.Env):
 
@@ -41,14 +44,12 @@ class FlockingRelativeEnv(gym.Env):
         self.r_max = float(config['max_rad_init'])
         self.std_dev = float(config['std_dev']) * self.dt
 
-
-
         # intitialize state matrices
-        self.x = np.zeros((self.n_agents, self.nx_system))
-        self.u = np.zeros((self.n_agents, self.nu))
-        self.mean_vel = np.zeros((self.n_agents, self.nu))
-        self.init_vel = np.zeros((self.n_agents, self.nu))
-        self.a_net = np.zeros((self.n_agents, self.n_agents))
+        self.x = None
+        self.u = None
+        self.mean_vel = None
+        self.init_vel = None
+        self.a_net = None
 
         # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1 
@@ -119,7 +120,7 @@ class FlockingRelativeEnv(gym.Env):
 
     def instant_cost(self):  # sum of differences in velocities
         curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
-        return curr_variance + self.potential(self.r2)
+        return curr_variance #+ self.potential(self.r2)
          # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
          # return versus_initial_vel
 
