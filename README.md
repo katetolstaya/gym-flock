@@ -1,4 +1,4 @@
-# gym_flock
+# Gym Flock
 
 ## Dependencies
 - OpenAI [Gym](https://github.com/openai/gym) 0.11.0
