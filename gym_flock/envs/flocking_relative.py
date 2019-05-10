@@ -34,15 +34,17 @@ class FlockingRelativeEnv(gym.Env):
         # number of actions per agent
         self.nu = 2 
 
-        # problem parameters from file
-        self.n_agents = int(config['network_size'])
-        self.comm_radius = float(config['comm_radius'])
+        # default problem parameters
+        self.n_agents = 80  # int(config['network_size'])
+        self.comm_radius = 0.9  # float(config['comm_radius'])
+        self.dt = 0.01  # #float(config['system_dt'])
+        self.v_max = 3.0  #  float(config['max_vel_init'])
+        self.r_max = 10.0  #  float(config['max_rad_init'])
+        #self.std_dev = 0.1  #  float(config['std_dev']) * self.dt
+
         self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.dt = float(config['system_dt'])
-        self.v_max = float(config['max_vel_init'])
+        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
         self.v_bias = self.v_max 
-        self.r_max = float(config['max_rad_init'])
-        self.std_dev = float(config['std_dev']) * self.dt
 
         # intitialize state matrices
         self.x = None
@@ -61,12 +63,27 @@ class FlockingRelativeEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
                                             dtype=np.float32)
 
-        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
-
         self.fig = None
         self.line1 = None
 
         self.seed()
+
+    def set_comm_radius(self, r):
+        self.comm_radius = r
+        self.comm_radius2 = self.comm_radius * self.comm_radius
+        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
+
+    def set_num_agents(self, n):
+        self.n_agents = n
+
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+                                       dtype=np.float32)
+
+        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
+                                            dtype=np.float32)
+
+    def set_initial_vmax(self, vmax):
+        self.v_max = vmax
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -199,7 +216,6 @@ class FlockingRelativeEnv(gym.Env):
         p[r2 > self.comm_radius2] = self.vr
         np.fill_diagonal(p, 0)
         return -0.0001 * np.sum(np.sum(p)) 
-
 
     def render(self, mode='human'):
         """
