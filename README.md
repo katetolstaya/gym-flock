@@ -3,13 +3,18 @@
 ## Dependencies
 - OpenAI [Gym](https://github.com/openai/gym) 0.11.0
 
-## To use
-1) clone
-2) pip3 install -e . (python2 doesnt work)
-3) import gym
-4) import gym_flock
-5) env = gym.make("Flocking-v0") or env = gym.make("LQR-v0")
+## To install
+1) Clone this repository
+2) `pip3 install -e . (python2 doesnt work)`
 
-Note that the `observation_space` and `action_space` are for a single agent. Let's say there are N agents, K features per agent observation and M actions per agent. Then, `observation_space` is `(K,)` and `action_space` is `(M,)`. 
-But `step()` and `reset()` return observations for all agents at once with dimension `(N,K)`. The `step()` function takes an action with dimension `(N,M)`.
+## To use
+
+Include the following code in your Python script:
+`import gym
+import gym_flock
+env = gym.make("FlockingRelative-v0")`
+and then use the `env.reset()` and `env.step()` as normal. These implementations also include a `env.controller()` function that gives the best current set of actions to be used for imitation learning.
+
+
+
 
