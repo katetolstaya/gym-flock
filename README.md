@@ -2,10 +2,11 @@
 
 ## Dependencies
 - OpenAI [Gym](https://github.com/openai/gym) 0.11.0
+- Python 3 (Python 2 doesn't work)
 
 ## To install
 1) Clone this repository
-2) `pip3 install -e . (python2 doesnt work)`
+2) `pip3 install -e . `
 
 ## To use
 
