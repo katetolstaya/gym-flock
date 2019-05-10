@@ -136,11 +136,14 @@ class FlockingRelativeEnv(gym.Env):
 
 
     def instant_cost(self):  # sum of differences in velocities
-        curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
-        return curr_variance #+ self.potential(self.r2)
+         # curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
+         # return curr_variance #+ self.potential(self.r2)
          # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
          # return versus_initial_vel
 
+         squares = np.multiply(self.diff[:, :, 2], self.diff[:, :, 2]) + np.multiply(self.diff[:, :, 3], self.diff[:, :, 3])
+         # return -1.0  * self.dt * (np.sum(np.sum(squares)) + self.potential(self.r2)) / self.n_agents #/ self.n_agents
+         return -1.0  * self.dt * (np.sum(np.sum(squares))) / self.n_agents
 
     def reset(self):
         x = np.zeros((self.n_agents, self.nx_system))
@@ -215,7 +218,7 @@ class FlockingRelativeEnv(gym.Env):
         p = np.reciprocal(r2) + np.log(r2)
         p[r2 > self.comm_radius2] = self.vr
         np.fill_diagonal(p, 0)
-        return -0.0001 * np.sum(np.sum(p)) 
+        return np.sum(np.sum(p)) 
 
     def render(self, mode='human'):
         """
