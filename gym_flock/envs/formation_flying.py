@@ -36,7 +36,7 @@ class FormationFlyingEnv(gym.Env):
         self.nu = 2 
 
         # problem parameters from file
-        self.n_agents = int(config['network_size'])
+        self.n_agents = 3
         self.comm_radius = float(config['comm_radius'])
         self.comm_radius2 = self.comm_radius * self.comm_radius
         self.dt = float(config['system_dt'])
@@ -68,21 +68,13 @@ class FormationFlyingEnv(gym.Env):
         return [seed]
 
     def step(self, action):
-
-        assert u.shape == (self.n_agents, self.nu)
-        #u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-        self.u = action 
-
+             
+        self.u = np.reshape(action,(self.n_agents, self.nu))
         
-        # update x position of all robots 
-        self.x[:, 0] = self.x[:, 0] + self.u[:, 0] 
+        
+        self.x[:, 0] = self.x[:, 0] + self.u[:, 0]*0.1
         # update  y position 
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 1] 
-
-        # x velocity
-        #self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
-        # y velocity
-        #self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
+        self.x[:, 1] = self.x[:, 1] + self.u[:, 1]*0.1
 
         return self._get_obs(), self.instant_cost(), False, {}
 
@@ -96,14 +88,6 @@ class FormationFlyingEnv(gym.Env):
 
         diff = (robot_xs - robot_goalxs)**2 + (robot_ys - robot_goalys)**2
         return -np.sum(diff)
-        #pdb.set_trace()
-        # TODO adjust to desired reward
-        # action_cost = -1.0 * np.sum(np.square(self.u))
-        #curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
-        #versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
-        #return curr_variance 
-        #return versus_initial_vel
-        #return curr_variance + versus_initial_vel
 
 
     def reset(self):
@@ -122,46 +106,23 @@ class FormationFlyingEnv(gym.Env):
         self.goal_x3 = 2
         self.goal_y3 = 2
         
-        # generate agents along an equilateral triangle (-2,0),(2,0),(0,2)
-        # and minimum distance between agents > min_dist_thresh
 
-        #while (self.degree == 0 and degree < 2) or min_dist < min_dist_thresh: 
-        #while (self.degree == 0) or min_dist < min_dist_thresh: 
-        # randomly initialize the location and velocity of all agents
-        #length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
-        #angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
-        #N = np.round(self.n_agents/3).astype(int)
-        #pdb.set_trace()
-        
-        #x1 = np.linspace(-2, 2, N, endpoint=True)
-        #x1_ = np.linspace(-2,0,N,endpoint = True)
-        #x11_ = np.linspace(0,2,N,endpoint = True)
-        
-        #y = np.zeros(N)
-        #y1 = np.linspace(0,2, N, endpoint=True)
-        #y2 = np.linspace(2,0, N, endpoint=True)
-        
-        #xpoints = np.asarray((x1,x1_,x11_))
-        #ypoints = np.asarray((y,y1,y2))
         xpoints = np.array((0,-2,2))
         ypoints = np.array((0,0,0))
-        #xpoints = np.array((0,-2))
-        #ypoints = np.array((2,0))
 
-        #x[:, 0] = np.reshape(xpoints,-1)
-        #x[:, 1] = np.reshape(ypoints,-1)
+
+        self.start_xpoints = xpoints
+        self.start_ypoints = ypoints
+
+        self.goal_xpoints = np.array((self.goal_x1,self.goal_x2,self.goal_x3))
+        self.goal_ypoints = np.array((self.goal_y1,self.goal_y2,self.goal_y3))
+        
         x[:,0] = xpoints
         x[:,1] = ypoints
 
-        #bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-        #x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
-        #x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
-
-        #x[:,4] = np.array((self.goal_x1,self.goal_x2,self.goal_x3))
-        #x[:,5] = np.array((self.goal_y1,self.goal_y2,self.goal_y3))
-
-        x[:,2] = np.array((self.goal_x1,self.goal_x2))
-        x[:,3] = np.array((self.goal_y1,self.goal_x3))
+        
+        x[:,2] = np.array((self.goal_x1,self.goal_x2,self.goal_x3))
+        x[:,3] = np.array((self.goal_y1,self.goal_y2,self.goal_y3))
         
         # compute distances between agents
         a_net = self.dist2_mat(x)
@@ -171,11 +132,6 @@ class FormationFlyingEnv(gym.Env):
         a_net = a_net < self.comm_radius2
         degree = np.min(np.sum(a_net.astype(int), axis=1))
 
-
-            #pdb.set_trace()
-        # keep good initialization
-        self.mean_vel = np.mean(x[:, 2:4], axis=0)
-        self.init_vel = x[:, 2:4]
         self.x = x
 
         self.a_net = self.get_connectivity(self.x)
@@ -183,25 +139,17 @@ class FormationFlyingEnv(gym.Env):
         return self._get_obs()
 
     def _get_obs(self):
-        # state_values = self.x
-        state_values = np.hstack((self.x, self.init_vel))  # initial velocities are part of state to make system observable
-
+        
+        state_values = self.x   
         if self.dynamic:
             state_network = self.get_connectivity(self.x)
         else:
             state_network = self.a_net
 
-        return (state_values, state_network)
-
+        #return (state_values, state_network)
+        return state_values
 
     def dist2_mat(self, x):
-        """
-        Compute squared euclidean distances between agents. Diagonal elements are infinity
-        Args:
-            x (): current state of all agents
-
-        Returns: symmetric matrix of size (n_agents, n_agents) with A_ij the distance between agents i and j
-        """
 
         x_loc = np.reshape(x[:, 0:2], (self.n_agents,2,1))
         a_net = np.sum(np.square(np.transpose(x_loc, (0,2,1)) - np.transpose(x_loc, (2,0,1))), axis=2)
@@ -210,14 +158,7 @@ class FormationFlyingEnv(gym.Env):
 
 
     def get_connectivity(self, x):
-        """
-        Get the adjacency matrix of the network based on agent locations by computing pairwise distances using pdist
-        Args:
-            x (): current state of all agents
 
-        Returns: adjacency matrix of network
-
-        """
 
         if self.degree == 0:
             a_net = self.dist2_mat(x)
@@ -235,16 +176,6 @@ class FormationFlyingEnv(gym.Env):
 
         return a_net
 
-    def controller(self):
-        """
-        Consensus-based centralized flocking with no obstacle avoidance
-
-        Returns: the optimal action
-        """
-        # TODO implement Tanner 2003?
-        u = np.mean(self.x[:,2:4], axis=0) - self.x[:,2:4]
-        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-        return u
 
     def render(self, mode='human'):
         """
@@ -256,8 +187,11 @@ class FormationFlyingEnv(gym.Env):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             line1, = ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
-            line2, = ax.plot(self.x[:, 4], self.x[:, 5], 'go')
-            ax.plot([0], [0], 'kx')
+            
+            #ax.plot([0], [0], 'kx')
+            ax.plot(self.start_xpoints, self.start_ypoints, 'kx')
+            ax.plot(self.goal_xpoints, self.goal_ypoints, 'rx')
+
             plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
             plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
             a = gca()
@@ -266,17 +200,12 @@ class FormationFlyingEnv(gym.Env):
             plt.title('GNN Controller')
             self.fig = fig
             self.line1 = line1
-            self.line2 = line2
+            
 
         self.line1.set_xdata(self.x[:, 0])
         self.line1.set_ydata(self.x[:, 1])
 
-        self.line2.set_xdata(self.x[:, 4])
-        self.line2.set_ydata(self.x[:, 5])
-
-        #self.line1.set_xdata(self.x[:, 2])
-        #self.line1.set_ydata(self.x[:, 3])
-
+        
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
