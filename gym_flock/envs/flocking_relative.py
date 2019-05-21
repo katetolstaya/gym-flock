@@ -68,13 +68,13 @@ class FlockingRelativeEnv(gym.Env):
 
         self.seed()
 
-    def set_comm_radius(self, r):
-        self.comm_radius = r
+    def params_from_cfg(self, args):
+        self.comm_radius = args.getfloat('comm_radius')
         self.comm_radius2 = self.comm_radius * self.comm_radius
         self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
 
-    def set_num_agents(self, n):
-        self.n_agents = n
+
+        self.n_agents = args.getint('n_agents')
 
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
@@ -82,8 +82,7 @@ class FlockingRelativeEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
                                             dtype=np.float32)
 
-    def set_initial_vmax(self, vmax):
-        self.v_max = vmax
+        self.v_max = args.getfloat('v_max')
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
