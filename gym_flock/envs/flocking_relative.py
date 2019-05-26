@@ -51,7 +51,7 @@ class FlockingRelativeEnv(gym.Env):
         self.u = None
         self.mean_vel = None
         self.init_vel = None
-        self.a_net = None
+        #self.a_net = None
 
         # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1 
@@ -194,8 +194,8 @@ class FlockingRelativeEnv(gym.Env):
 
         # TODO use the helper quantities here more? 
         potentials = np.dstack((self.diff, self.potential_grad(self.diff[:, :, 0], self.r2), self.potential_grad(self.diff[:, :, 1], self.r2)))
-        if not self.centralized:
-            potentials = potentials * self.a_net.reshape(self.n_agents, self.n_agents, 1) 
+        if not centralized:
+            potentials = potentials * self.adj_mat.reshape(self.n_agents, self.n_agents, 1) 
 
         p_sum = np.sum(potentials, axis=1).reshape((self.n_agents, self.nx_system + 2))
         controls =  np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
