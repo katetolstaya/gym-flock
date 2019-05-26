@@ -183,11 +183,14 @@ class FlockingRelativeEnv(gym.Env):
         self.compute_helpers()
         return (self.state_values, self.state_network)
 
-    def controller(self):
+    def controller(self, centralized=None):
         """
         The controller for flocking from Turner 2003.
         Returns: the optimal action
         """
+
+        if centralized is None:
+            centralized = self.centralized
 
         # TODO use the helper quantities here more? 
         potentials = np.dstack((self.diff, self.potential_grad(self.diff[:, :, 0], self.r2), self.potential_grad(self.diff[:, :, 1], self.r2)))
