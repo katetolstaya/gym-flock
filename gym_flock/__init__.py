@@ -18,6 +18,20 @@ register(
     max_episode_steps=200,
 )
 
+register(
+    id='FlockingLeader-v0',
+    entry_point='gym_flock.envs:FlockingLeaderEnv',
+    max_episode_steps=200,
+)
+
+
+register(
+    id='FlockingObstacle-v0',
+    entry_point='gym_flock.envs:FlockingObstacleEnv',
+    max_episode_steps=200,
+)
+
+
 
 register(
     id='LQR-v0',
