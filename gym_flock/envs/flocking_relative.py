@@ -38,7 +38,7 @@ class FlockingRelativeEnv(gym.Env):
         self.n_agents = 100  # int(config['network_size'])
         self.comm_radius = 0.9  # float(config['comm_radius'])
         self.dt = 0.01  # #float(config['system_dt'])
-        self.v_max = 3.0  #  float(config['max_vel_init'])
+        self.v_max = 5.0  #  float(config['max_vel_init'])
         self.r_max = 10.0  #  float(config['max_rad_init'])
         #self.std_dev = 0.1  #  float(config['std_dev']) * self.dt
 
@@ -229,9 +229,9 @@ class FlockingRelativeEnv(gym.Env):
         if self.fig is None:
             plt.ion()
             fig = plt.figure()
-            ax = fig.add_subplot(111)
-            line1, = ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
-            ax.plot([0], [0], 'kx')
+            self.ax = fig.add_subplot(111)
+            line1, = self.ax.plot(self.x[:, 0], self.x[:, 1], 'bo')  # Returns a tuple of line objects, thus the comma
+            self.ax.plot([0], [0], 'kx')
             plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
             plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
             a = gca()
