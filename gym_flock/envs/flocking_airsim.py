@@ -67,7 +67,7 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
 
     def __init__(self):
 
-        super(FlockingObstacleEnv, self).__init__()
+        super(FlockingAirsimEnv, self).__init__()
 
         # parse settings file with drone names and home locations
         fname = '/home/kate/Documents/AirSim/settings.json'
@@ -132,14 +132,14 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
         # integrate acceleration
         new_vel = (u * self.true_dt + self.x[:, 2:4]) * self.scale
         self.send_velocity_commands(new_vel)
-        self.x = getStates() / self.scale  # get drone locations and velocities
+        self.x = self.getStates() / self.scale  # get drone locations and velocities
         self.compute_helpers()
         return (self.state_values, self.state_network), self.instant_cost(), False, {}
 
 
     def getStates(self):
         states = np.zeros(shape=(self.n_agents, 4))
-        for i in range(0, N):
+        for i in range(0, self.n_agents):
             state = self.client.getMultirotorState(vehicle_name=self.names[i])
             states[i][0] = float(state.kinematics_estimated.position.x_val) + self.home[i][0]
             states[i][1] = float(state.kinematics_estimated.position.y_val) + self.home[i][1]

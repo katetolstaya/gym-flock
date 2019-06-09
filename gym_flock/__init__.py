@@ -31,11 +31,11 @@ register(
     max_episode_steps=200,
 )
 
-# register(
-#     id='FlockingAirsim-v0',
-#     entry_point='gym_flock.envs:FlockingAirsimEnv',
-#     max_episode_steps=500,
-# )
+register(
+    id='FlockingAirsim-v0',
+    entry_point='gym_flock.envs:FlockingAirsimEnv',
+    max_episode_steps=500,
+)
 
 
 
