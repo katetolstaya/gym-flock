@@ -23,8 +23,7 @@ def circle(N):
         return np.vstack((circle1, circle2)), np.vstack((v1, v2))
 
 
-def grid(N):
-    side = 5
+def grid(N, side=5):
     side2 = int(N / side)
     xs = np.arange(0, side) - side / 2.0
     ys = np.arange(0, side2) - side2 / 2.0
@@ -91,10 +90,10 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
         self.setup_drones()
 
         ################################################################
-        # option 1: two flocks colliding
-        x0, v0 = twoflocks(self.n_agents)
+        # # option 1: two flocks colliding
+        # x0, v0 = twoflocks(self.n_agents)
 
-        initial_v_dt = 8.0  # good for twoflocks()
+        # initial_v_dt = 8.0  # good for twoflocks()
         # initial_v_dt = 2.0 # better for the rest of the cases
 
         # option 2: two circles with inwards velocities
@@ -109,20 +108,25 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
         #     v0 = states[:,2:4]
         ######################################################################
 
+        initial_v_dt = 4.0 
+        x0 = grid(self.n_agents)
+        bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
+        v0 = np.zeros((self.n_agents, 2))
+        v0[:, 0] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0] 
+        v0[:, 1] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1] 
+
         states = self.getStates()
         mean_x = np.mean(states[:, 0])
         mean_y = np.mean(states[:, 1])
 
         # scale positions and velocities
         x0 = x0 * self.scale
-        if v0 is not None:
-            v0 = v0 * self.scale
+        v0 = v0 * self.scale
 
         self.display_msg('Moving to new positions...')
         self.send_loc_commands(x0, mean_x, mean_y)
 
-        if v0 is not None:
-            self.send_velocity_commands(v0, duration=initial_v_dt)
+        self.send_velocity_commands(v0, duration=initial_v_dt)
 
         self.x = self.getStates() / self.scale  # get drone locations and velocities
         self.compute_helpers()
