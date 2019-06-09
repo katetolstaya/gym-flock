@@ -82,7 +82,7 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
         # connect to the AirSim simulator
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
-        self.display_msg('Initializing...')
+        #self.display_msg('Initializing...')
         self.z = -40
 
     def reset(self):
@@ -123,7 +123,7 @@ class FlockingAirsimEnv(FlockingRelativeEnv):
         x0 = x0 * self.scale
         v0 = v0 * self.scale
 
-        self.display_msg('Moving to new positions...')
+        #self.display_msg('Moving to new positions...')
         self.send_loc_commands(x0, mean_x, mean_y)
 
         self.send_velocity_commands(v0, duration=initial_v_dt)
