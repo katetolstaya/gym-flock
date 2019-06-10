@@ -1,8 +1,9 @@
 # Gym Flock
 
 ## Dependencies
-- OpenAI [Gym](https://github.com/openai/gym) 0.11.0
+- [OpenAI Gym](https://github.com/openai/gym) 0.11.0
 - Python 3 (Python 2 doesn't work)
+- [AirSim](https://github.com/microsoft/AirSim) (optional)
 
 ## To install
 1) Clone this repository
@@ -18,6 +19,7 @@ env = gym.make("FlockingRelative-v0")`
 ~~~~
 and then use the `env.reset()` and `env.step()` for interfacing with the environment as you would with other OpenAI Gym environments. 
 These implementations also include a `env.controller()` function that gives the best current set of actions to be used for imitation learning.
+
 
 
 
