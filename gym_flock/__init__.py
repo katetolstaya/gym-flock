@@ -19,6 +19,11 @@ register(
     max_episode_steps=200,
 )
 
+register(
+    id='FormationFlying-v0',
+    entry_point='gym_flock.envs:FormationFlyingEnv',
+    max_episode_steps=500,
+)
 
 try:
     import airsim
@@ -29,6 +34,8 @@ try:
     )
 except ImportError:
     print('AirSim not installed.')
+
+
 
 
 # register(
@@ -60,9 +67,4 @@ except ImportError:
 #     max_episode_steps=500,
 # )
 
-# register(
-#     id='FormationFlying-v0',
-#     entry_point='gym_flock.envs:FormationFlyingEnv',
-#     max_episode_steps=500,
-# )
 
