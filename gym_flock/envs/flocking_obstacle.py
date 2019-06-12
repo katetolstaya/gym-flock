@@ -8,20 +8,34 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 from gym_flock.envs.flocking_relative import FlockingRelativeEnv
 
+def grid(N, side=5):
+    side2 = int(N / side)
+    xs = np.arange(0, side) - side / 2.0
+    ys = np.arange(0, side2) - side2 / 2.0
+    xs, ys = np.meshgrid(xs, ys)
+    xs = xs.reshape((N, 1))
+    ys = ys.reshape((N, 1))
+    return 0.8 * np.hstack((xs, ys))
+
 class FlockingObstacleEnv(FlockingRelativeEnv):
 
     def __init__(self):
 
         super(FlockingObstacleEnv, self).__init__()
-        self.n_obstacles = 5
+        self.n_obstacles = 4
         
         self.mask = np.ones((self.n_agents,))
         self.mask[0:self.n_obstacles] = 0
+        self.r_max = 3.0
+        self.line1 = None
+        self.line2 = None
 
 
     def params_from_cfg(self, args):
         super(FlockingObstacleEnv, self).params_from_cfg(args)
         self.mask[0:self.n_obstacles] = 0
+
+
 
     def step(self, u):
 
@@ -43,9 +57,26 @@ class FlockingObstacleEnv(FlockingRelativeEnv):
 
         return (self.state_values, self.state_network), self.instant_cost(), False, {}
 
+    # def reset(self):
+    #     super(FlockingObstacleEnv, self).reset()
+    #     self.x[0:self.n_obstacles,2:4] = 0
+    #     return (self.state_values, self.state_network)
+
     def reset(self):
-        super(FlockingObstacleEnv, self).reset()
+        self.x = np.zeros((self.n_agents, self.nx_system))
+
+        self.x[:,0:2] = grid(self.n_agents)
+        self.x[:,2:4] = [0, -7.0]
+
+        self.x[0:self.n_obstacles,0:2] = grid(self.n_obstacles, side=2) * 0.5
+        self.x[0:self.n_obstacles,1] -= 10.0
         self.x[0:self.n_obstacles,2:4] = 0
+
+        # keep good initialization
+        self.mean_vel = np.mean(self.x[self.n_obstacles:, 2:4], axis=0) 
+        self.init_vel = self.x[self.n_obstacles:, 2:4]
+        #self.a_net = self.get_connectivity(self.x)
+        self.compute_helpers()
         return (self.state_values, self.state_network)
 
     def compute_helpers(self):
@@ -78,3 +109,19 @@ class FlockingObstacleEnv(FlockingRelativeEnv):
             self.state_network = self.adj_mat_mean
         else:
             self.state_network = self.adj_mat
+
+    def render(self, mode='human'):
+        """
+        Render the environment with agents as points in 2D space
+        """
+        super(FlockingObstacleEnv, self).render(mode)
+        if self.line2 is None:
+            line2, = self.ax.plot(self.x[:self.n_obstacles, 0], self.x[:self.n_obstacles, 1], 'ro')
+            self.line2 = line2
+
+        self.line2.set_xdata(self.x[:self.n_obstacles, 0])
+        self.line2.set_ydata(self.x[:self.n_obstacles, 1])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+

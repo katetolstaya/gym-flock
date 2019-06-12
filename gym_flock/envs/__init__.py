@@ -14,6 +14,7 @@ from gym_flock.envs.formation_flying import FormationFlyingEnv
 try:
 	import airsim
 	from gym_flock.envs.flocking_airsim import FlockingAirsimEnv
+	from gym_flock.envs.flocking_airsim_accel import FlockingAirsimAccelEnv
 except ImportError:
 	print('AirSim not installed.')
 

@@ -3,7 +3,7 @@ from gym.envs.registration import register
 register(
     id='FlockingRelative-v0',
     entry_point='gym_flock.envs:FlockingRelativeEnv',
-    max_episode_steps=200,
+    max_episode_steps=1000,
 )
 
 register(
@@ -30,6 +30,12 @@ try:
     register(
         id='FlockingAirsim-v0',
         entry_point='gym_flock.envs:FlockingAirsimEnv',
+        max_episode_steps=200,
+    )
+
+    register(
+        id='FlockingAirsimAccel-v0',
+        entry_point='gym_flock.envs:FlockingAirsimAccelEnv',
         max_episode_steps=200,
     )
 except ImportError:
