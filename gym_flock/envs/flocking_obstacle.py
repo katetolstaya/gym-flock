@@ -45,13 +45,13 @@ class FlockingObstacleEnv(FlockingRelativeEnv):
         self.u = u
 
         # x position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt 
+        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5 * self.mask
         # y position
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt 
+        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt + self.u[:, 1] * self.dt * self.dt * 0.5 * self.mask
         # x velocity
-        self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt * self.mask 
+        self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt * self.mask
         # y velocity
-        self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt * self.mask
+        self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt * self.mask
 
         self.compute_helpers()
 

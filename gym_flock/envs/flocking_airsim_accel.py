@@ -51,10 +51,11 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         #     v0 = states[:,2:4]
         ######################################################################
 
-        initial_v_dt = 4.0
+        initial_v_dt = 2.0
         x0 = grid(self.n_agents)
         bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
         v0 = np.zeros((self.n_agents, 2))
+        self.v_max = 0.5
         v0[:, 0] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
         v0[:, 1] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
 
@@ -69,17 +70,19 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         # self.display_msg('Moving to new positions...')
         self.send_loc_commands(x0, mean_x, mean_y)
 
-        # self.send_velocity_commands(v0, duration=initial_v_dt)
+        self.send_velocity_commands(v0, duration=initial_v_dt)
 
         self.x = self.getStates() / self.scale  # get drone locations and velocities
         self.compute_helpers()
         return (self.state_values, self.state_network)
 
     def step(self, u):
-        u = np.clip(u, a_min=-0.1, a_max=0.1)
+        u = u * self.scale
+        accel_lim = 1.0
+        u = np.clip(u, a_min=-1.0 * accel_lim, a_max=accel_lim)
         # TODO tune the limits, and the multipliers (but the signs are right)
-        pitch = -1.0 * u[:, 0] / 9.8 * self.scale
-        roll = u[:, 1] / 9.8 * self.scale
+        pitch = -1.0 * u[:, 0] / 9.8
+        roll = u[:, 1] / 9.8
         roll_pitch = np.hstack((pitch.reshape((-1,1)), roll.reshape((-1,1))))
         self.send_accel_commands(roll_pitch)
         self.x = self.getStates() / self.scale  # get drone locations and velocities
@@ -111,15 +114,14 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
     def send_accel_commands(self, u, duration=0.01):
         fi = []
         for i in range(self.n_agents):
-            fi.append(
-                self.client.moveByAngleZAsync(u[i, 0], u[i, 1], self.z, 0.0, duration, vehicle_name=self.names[i]))
+            fi.append(self.client.moveByAngleZAsync(float(u[i, 0]), float(u[i, 1]), self.z, 0.0, duration, vehicle_name=self.names[i]))
         for f in fi:
             f.join()
 
     def send_velocity_commands(self, u, duration=0.01):
         fi = []
         for i in range(self.n_agents):
-            fi.append(self.client.moveByVelocityZAsync(u[i, 0], u[i, 1], self.z, duration, vehicle_name=self.names[i]))
+            fi.append(self.client.moveByVelocityZAsync(float(u[i, 0]), float(u[i, 1]), self.z, duration, vehicle_name=self.names[i]))
         for f in fi:
             f.join()
 

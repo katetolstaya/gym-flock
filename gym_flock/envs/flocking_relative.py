@@ -19,10 +19,10 @@ class FlockingRelativeEnv(gym.Env):
 
     def __init__(self):
 
-        config_file = path.join(path.dirname(__file__), "params_flock.cfg")
-        config = configparser.ConfigParser()
-        config.read(config_file)
-        config = config['flock']
+        # config_file = path.join(path.dirname(__file__), "params_flock.cfg")
+        # config = configparser.ConfigParser()
+        # config.read(config_file)
+        # config = config['flock']
 
         self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
@@ -37,8 +37,8 @@ class FlockingRelativeEnv(gym.Env):
         # default problem parameters
         self.n_agents = 100  # int(config['network_size'])
         self.comm_radius = 0.9  # float(config['comm_radius'])
-        self.dt = 0.01  # #float(config['system_dt'])
-        self.v_max = 5.0  #  float(config['max_vel_init'])
+        self.dt = 0.1  # #float(config['system_dt'])
+        self.v_max = 0.5  #  float(config['max_vel_init'])
         self.r_max = 1.0 #10.0  #  float(config['max_rad_init'])
         #self.std_dev = 0.1  #  float(config['std_dev']) * self.dt
 
@@ -54,8 +54,7 @@ class FlockingRelativeEnv(gym.Env):
         #self.a_net = None
 
         # TODO : what should the action space be? is [-1,1] OK?
-        self.max_accel = 1 
-        self.gain = 1.0 #10.0 #1.0 #0.1 #1.0 #10.0 # TODO - adjust if necessary - may help the NN performance
+        self.max_accel = 0.3
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
 
@@ -93,17 +92,17 @@ class FlockingRelativeEnv(gym.Env):
 
         #u = np.reshape(u, (-1, 2))
         assert u.shape == (self.n_agents, self.nu)
-        #u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u
 
         # x position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt
+        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5
         # y position
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt
+        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt + self.u[:, 1] * self.dt * self.dt * 0.5
         # x velocity
-        self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
+        self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt
         # y velocity
-        self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt #+ np.random.normal(0, self.std_dev, (self.n_agents,))
+        self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
 
         self.compute_helpers()
 

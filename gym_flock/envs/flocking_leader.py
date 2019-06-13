@@ -35,11 +35,11 @@ class FlockingLeaderEnv(FlockingRelativeEnv):
         self.u = u
 
         # x, y position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt #* self.mask
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt #* self.mask
+        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5 * self.mask
+        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt + self.u[:, 1] * self.dt * self.dt * 0.5 * self.mask
         # x, y velocity
-        self.x[:, 2] = self.x[:, 2] + self.gain * self.u[:, 0] * self.dt * self.mask 
-        self.x[:, 3] = self.x[:, 3] + self.gain * self.u[:, 1] * self.dt * self.mask
+        self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt * self.mask
+        self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt * self.mask
 
         self.compute_helpers()
         return (self.state_values, self.state_network), self.instant_cost(), False, {}
