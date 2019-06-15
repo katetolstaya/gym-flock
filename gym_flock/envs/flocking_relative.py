@@ -24,7 +24,7 @@ class FlockingRelativeEnv(gym.Env):
         # config.read(config_file)
         # config = config['flock']
 
-        self.mean_pooling = True # normalize the adjacency matrix by the number of neighbors or not
+        self.mean_pooling = True  # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
 
         # number states per agent
@@ -37,8 +37,8 @@ class FlockingRelativeEnv(gym.Env):
         # default problem parameters
         self.n_agents = 100  # int(config['network_size'])
         self.comm_radius = 0.9  # float(config['comm_radius'])
-        self.dt = 0.1  # #float(config['system_dt'])
-        self.v_max = 0.5  #  float(config['max_vel_init'])
+        self.dt = 0.01  # #float(config['system_dt'])
+        self.v_max = 5.0  #  float(config['max_vel_init'])
         self.r_max = 1.0 #10.0  #  float(config['max_rad_init'])
         #self.std_dev = 0.1  #  float(config['std_dev']) * self.dt
 
@@ -51,13 +51,11 @@ class FlockingRelativeEnv(gym.Env):
         self.u = None
         self.mean_vel = None
         self.init_vel = None
-        #self.a_net = None
 
         # TODO : what should the action space be? is [-1,1] OK?
-        self.max_accel = 0.3
+        self.max_accel = 1
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
-
 
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
                                             dtype=np.float32)
@@ -83,6 +81,7 @@ class FlockingRelativeEnv(gym.Env):
                                             dtype=np.float32)
 
         self.v_max = args.getfloat('v_max')
+        self.dt = args.getfloat('dt')
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -92,7 +91,7 @@ class FlockingRelativeEnv(gym.Env):
 
         #u = np.reshape(u, (-1, 2))
         assert u.shape == (self.n_agents, self.nu)
-        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        #u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u
 
         # x position
