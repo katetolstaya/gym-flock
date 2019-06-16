@@ -8,7 +8,7 @@ class FlockingStochasticEnv(FlockingRelativeEnv):
         super(FlockingStochasticEnv, self).__init__()
         self.dt_mean = 0.12
         self.dt_sigma = 0.018
-        self.max_accel = 2.0 / 6.0
+        self.max_accel = 0.5
 
     def step(self, u):
         assert u.shape == (self.n_agents, self.nu)
