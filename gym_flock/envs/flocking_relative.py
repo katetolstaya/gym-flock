@@ -132,16 +132,25 @@ class FlockingRelativeEnv(gym.Env):
         else:
             self.state_network = self.adj_mat
 
+    def get_stats(self):
+
+        stats = {}
+
+        stats['vel_diffs'] = np.sqrt(np.sum(np.power(self.x[:, 2:4] - np.mean(self.x[:, 2:4], axis=0), 2), axis=1))
+
+        stats['min_dists'] = np.min(np.sqrt(self.r2), axis=0)
+        return stats
 
     def instant_cost(self):  # sum of differences in velocities
-         # curr_variance = -1.0 * self.n_agents * np.sum((np.var(self.x[:, 2:4], axis=0)))
+         curr_variance = -1.0 * np.sum((np.var(self.x[:, 2:4], axis=0)))
+         return curr_variance
          # return curr_variance #+ self.potential(self.r2)
          # versus_initial_vel = -1.0 * np.sum(np.sum(np.square(self.x[:, 2:4] - self.mean_vel), axis=1))
          # return versus_initial_vel
 
-         squares = np.multiply(self.diff[:, :, 2], self.diff[:, :, 2]) + np.multiply(self.diff[:, :, 3], self.diff[:, :, 3])
-         # return -1.0  * self.dt * (np.sum(np.sum(squares)) + self.potential(self.r2)) / self.n_agents #/ self.n_agents
-         return -1.0  * self.dt * (np.sum(np.sum(squares))) / self.n_agents
+         # squares = np.multiply(self.diff[:, :, 2], self.diff[:, :, 2]) + np.multiply(self.diff[:, :, 3], self.diff[:, :, 3])
+         # # return -1.0  * self.dt * (np.sum(np.sum(squares)) + self.potential(self.r2)) / self.n_agents #/ self.n_agents
+         # return -1.0  * self.dt * (np.sum(np.sum(squares))) / self.n_agents
 
     def reset(self):
         x = np.zeros((self.n_agents, self.nx_system))
