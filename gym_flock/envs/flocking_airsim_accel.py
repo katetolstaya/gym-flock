@@ -20,7 +20,7 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         self.scale = 6.0
 
         # duration of velocity commands
-        self.true_dt = 1.0 / 7.5  # average of actual measurements
+        # self.true_dt = 1.0 / 7.5  # average of actual measurements
 
         # connect to the AirSim simulator
         self.client = airsim.MultirotorClient()
@@ -28,6 +28,7 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         # self.display_msg('Initializing...')
         self.z = -40
         self.yaws = None
+        self.max_accel = 0.5
 
     def reset(self):
         self.client.reset()
@@ -78,10 +79,9 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         return (self.state_values, self.state_network)
 
     def step(self, u):
+
+        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         u = u * self.scale
-        accel_lim = 1.0
-        # TODO tune the limits
-        u = np.clip(u, a_min=-1.0 * accel_lim, a_max=accel_lim)
 
         # roll = u[:, 1] / 9.8
         # pitch = -1.0 * u[:, 0] / 9.8
@@ -163,3 +163,13 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
     def display_msg(self, msg):
         print(msg)
         self.client.simPrintLogMessage(msg)
+
+    def controller(self, centralized=None):
+        """
+        The controller for flocking from Turner 2003.
+        Returns: the optimal action
+        """
+        controls = super(FlockingAirsimAccelEnv, self).controller(centralized)
+        controls = np.clip(controls, -1.0 * self.max_accel, self.max_accel)
+        return controls
+

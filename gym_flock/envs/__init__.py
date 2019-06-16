@@ -7,7 +7,7 @@ from gym_flock.envs.flocking_stoch import FlockingStochasticEnv
 
 try:
 	import airsim
-	from gym_flock.envs.flocking_airsim import FlockingAirsimEnv
+	# from gym_flock.envs.old.flocking_airsim import FlockingAirsimEnv
 	from gym_flock.envs.flocking_airsim_accel import FlockingAirsimAccelEnv
 except ImportError:
 	print('AirSim not installed.')
