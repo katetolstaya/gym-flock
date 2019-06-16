@@ -31,3 +31,11 @@ class FlockingStochasticEnv(FlockingRelativeEnv):
         return (self.state_values, self.state_network), self.instant_cost(), False, {}
 
 
+    def controller(self, centralized=None):
+        """
+        The controller for flocking from Turner 2003.
+        Returns: the optimal action
+        """
+        controls = super(FlockingStochasticEnv, self).controller(centralized)
+        controls = np.clip(controls, -1.0 * self.max_accel, self.max_accel)
+        return controls
