@@ -31,6 +31,12 @@ register(
     max_episode_steps=500,
 )
 
+register(
+    id='FlockingTwoFlocks-v0',
+    entry_point='gym_flock.envs:FlockingTwoFlocksEnv',
+    max_episode_steps=500,
+)
+
 
 try:
     import airsim

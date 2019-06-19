@@ -206,7 +206,7 @@ class FlockingRelativeEnv(gym.Env):
             potentials = potentials * self.adj_mat.reshape(self.n_agents, self.n_agents, 1) 
 
         p_sum = np.sum(potentials, axis=1).reshape((self.n_agents, self.nx_system + 2))
-        controls =  np.hstack(((- p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
+        controls =  np.hstack(((-  p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
         controls = np.clip(controls, -100, 100)
         return controls
 

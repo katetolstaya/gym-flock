@@ -4,6 +4,7 @@ from gym_flock.envs.flocking_obstacle import FlockingObstacleEnv
 from gym_flock.envs.flocking_leader import FlockingLeaderEnv
 from gym_flock.envs.formation_flying import FormationFlyingEnv
 from gym_flock.envs.flocking_stoch import FlockingStochasticEnv
+from gym_flock.envs.flocking_twoflocks import FlockingTwoFlocksEnv
 
 try:
 	import airsim

@@ -30,7 +30,26 @@ def grid(N, side=5):
     return 0.6 * np.hstack((xs, ys))
 
 
-def twoflocks(N):
+def twoflocks(N, delta=6, side=None):
+
+    half_n = int(N / 2)
+    if side is None:
+        grid1 = grid(half_n)
+    else:
+        grid1 = grid(half_n, side)
+
+    grid2 = grid1.copy() + np.array([0, delta / 2]).reshape((1, 2))
+    grid1 = grid1 + np.array([0, -delta / 2]).reshape((1, 2))
+
+    vels1 = np.tile(np.array([0., delta]).reshape((1, 2)), (half_n, 1))
+    vels2 = np.tile(np.array([0., -delta]).reshape((1, 2)), (half_n, 1))
+
+    grids = np.vstack((grid1, grid2))
+    vels = np.vstack((vels1, vels2))
+
+    return grids, vels
+
+def twoflocks_old(N):
     half_n = int(N / 2)
     grid1 = grid(half_n)
     delta = 6
