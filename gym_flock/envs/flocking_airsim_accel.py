@@ -57,7 +57,7 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         x0 = grid(self.n_agents)
         bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
         v0 = np.zeros((self.n_agents, 2))
-        self.v_max = 0.5
+        self.v_max = 1.0
         v0[:, 0] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
         v0[:, 1] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
 

@@ -149,8 +149,8 @@ class FlockingRelativeEnv(gym.Env):
          # return versus_initial_vel
 
          # squares = np.multiply(self.diff[:, :, 2], self.diff[:, :, 2]) + np.multiply(self.diff[:, :, 3], self.diff[:, :, 3])
-         # # return -1.0  * self.dt * (np.sum(np.sum(squares)) + self.potential(self.r2)) / self.n_agents #/ self.n_agents
-         # return -1.0  * self.dt * (np.sum(np.sum(squares))) / self.n_agents
+         # # # return -1.0  * self.dt * (np.sum(np.sum(squares)) + self.potential(self.r2)) / self.n_agents #/ self.n_agents
+         # return -1.0  * (np.sum(np.sum(squares))) / self.n_agents / self.n_agents
 
     def reset(self):
         x = np.zeros((self.n_agents, self.nx_system))
