@@ -27,6 +27,7 @@ class FlockingLeaderEnv(FlockingRelativeEnv):
 
     def params_from_cfg(self, args):
         super(FlockingLeaderEnv, self).params_from_cfg(args)
+        self.mask = np.ones((self.n_agents,))
         self.mask[0:self.n_leaders] = 0
 
     def step(self, u):

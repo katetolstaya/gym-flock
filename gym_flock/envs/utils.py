@@ -27,7 +27,7 @@ def grid(N, side=5):
     xs, ys = np.meshgrid(xs, ys)
     xs = xs.reshape((N, 1))
     ys = ys.reshape((N, 1))
-    return 0.6 * np.hstack((xs, ys))
+    return 0.8 * np.hstack((xs, ys))
 
 
 def twoflocks(N, delta=6, side=None):
