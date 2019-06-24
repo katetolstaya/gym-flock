@@ -156,7 +156,7 @@ class FlockingRelativeEnv(gym.Env):
         x = np.zeros((self.n_agents, self.nx_system))
         degree = 0
         min_dist = 0
-        min_dist_thresh = 0.05  # 0.25
+        min_dist_thresh = 0.1  # 0.25
 
         # generate an initial configuration with all agents connected,
         # and minimum distance between agents > min_dist_thresh
