@@ -9,11 +9,13 @@ class FlockingStochasticEnv(FlockingRelativeEnv):
         self.dt_mean = 0.12
         self.dt_sigma = 0.018
         self.max_accel = 0.5
+        self.scale = 6.0
 
     def step(self, u):
         assert u.shape == (self.n_agents, self.nu)
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-        self.u = u
+        self.u = u * self.scale
+        self.x = self.x * self.scale
 
         self.dt = np.random.normal(self.dt_mean, self.dt_sigma)
 
@@ -25,6 +27,8 @@ class FlockingStochasticEnv(FlockingRelativeEnv):
         self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt
         # y velocity
         self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
+
+        self.x = self.x / self.scale
 
         self.compute_helpers()
 

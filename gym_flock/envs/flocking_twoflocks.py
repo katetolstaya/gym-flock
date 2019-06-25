@@ -12,12 +12,13 @@ class FlockingTwoFlocksEnv(FlockingRelativeEnv):
         # self.x[:, 2:4] = vels * 0.25
         # self.x[:, 2] = np.random.uniform(low=-self.v_max*0.25, high=self.v_max*0.25, size=(self.n_agents,))
 
+        bias = np.random.uniform(low=-self.v_bias/2.0, high=self.v_bias/2.0, size=(2,))
         scale = 0.1
         grids = grid(self.n_agents, side=int(self.n_agents/10))
         self.x[:, 0:2] = grids
         self.x[:, 2:4] = -grids
-        self.x[:, 2] = self.x[:, 2] + np.random.uniform(low=-self.v_max*scale, high=self.v_max*scale, size=(self.n_agents,))
-        self.x[:, 3] = self.x[:, 3] + np.random.uniform(low=-self.v_max*scale, high=self.v_max*scale, size=(self.n_agents,))
+        self.x[:, 2] = self.x[:, 2] + bias[0]
+        self.x[:, 3] = self.x[:, 3]  + bias[1]
 
         self.mean_vel = np.mean(self.x[:, 2:4], axis=0)
         self.init_vel = self.x[:, 2:4]
