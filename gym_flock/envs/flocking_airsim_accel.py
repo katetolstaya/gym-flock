@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 from time import sleep
 from gym_flock.envs.flocking_relative import FlockingRelativeEnv
-from gym_flock.envs.utils import grid, parse_settings
+from gym_flock.envs.utils import grid, parse_settings, twoflocks_old
 
 
 class FlockingAirsimAccelEnv(FlockingRelativeEnv):
@@ -26,7 +26,7 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
         self.client = airsim.MultirotorClient()
         self.client.confirmConnection()
         # self.display_msg('Initializing...')
-        self.z = -40
+        self.z = -50
         self.yaws = None
         self.max_accel = 0.5
 
@@ -36,10 +36,10 @@ class FlockingAirsimAccelEnv(FlockingRelativeEnv):
 
         ################################################################
         # # option 1: two flocks colliding
-        # x0, v0 = twoflocks(self.n_agents)
-
+        # x0, v0 = twoflocks_old(self.n_agents)
+        #
         # initial_v_dt = 8.0  # good for twoflocks()
-        # initial_v_dt = 2.0 # better for the rest of the cases
+        #initial_v_dt = 2.0 # better for the rest of the cases
 
         # option 2: two circles with inwards velocities
         # x0, v0 = circle(N)

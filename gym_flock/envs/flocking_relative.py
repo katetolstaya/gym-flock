@@ -52,7 +52,6 @@ class FlockingRelativeEnv(gym.Env):
         self.mean_vel = None
         self.init_vel = None
 
-        # TODO : what should the action space be? is [-1,1] OK?
         self.max_accel = 1
         self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
@@ -81,6 +80,7 @@ class FlockingRelativeEnv(gym.Env):
                                             dtype=np.float32)
 
         self.v_max = args.getfloat('v_max')
+        self.v_bias = self.v_max
         self.dt = args.getfloat('dt')
 
     def seed(self, seed=None):
@@ -167,7 +167,6 @@ class FlockingRelativeEnv(gym.Env):
             angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
             x[:, 0] = length * np.cos(angle)
             x[:, 1] = length * np.sin(angle)
-
 
             bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
             x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0] 
@@ -259,14 +258,16 @@ class FlockingRelativeEnv(gym.Env):
     #     """
     #     Render the environment with agents as points in 2D space
     #     """
+    #
+    #     quiver_flag = True
     #     if self.fig is None:
     #         # plt.ion()
     #         fig = plt.figure()
     #         self.ax = fig.add_subplot(111)
     #         line1, = self.ax.plot(self.x[:, 0], self.x[:, 1], 'bo', label='n = 0 s')  # Returns a tuple of line objects, thus the comma
     #         self.ax.plot([0], [0], 'kx')
-    #         plt.ylim(-1.0 * self.r_max, 1.0 * self.r_max)
-    #         plt.xlim(-1.0 * self.r_max, 1.0 * self.r_max)
+    #         plt.ylim(-0.5 * self.r_max, 1.0 * self.r_max)
+    #         plt.xlim(-0.5 * self.r_max, 1.0 * self.r_max)
     #         a = gca()
     #         a.set_xticklabels(a.get_xticks(), font)
     #         a.set_yticklabels(a.get_yticks(), font)
@@ -274,26 +275,25 @@ class FlockingRelativeEnv(gym.Env):
     #         self.fig = fig
     #         self.line1 = line1
     #
-    #         # X = self.x[:, 0]
-    #         # Y = self.x[:, 1]
-    #         # U = self.x[:, 2]
-    #         # V = self.x[:, 3]
-    #         #
-    #         # self.ax.quiver(X, Y, U, V, color='k')
+    #         if quiver_flag:
+    #             X = self.x[:, 0]
+    #             Y = self.x[:, 1]
+    #             U = self.x[:, 2]
+    #             V = self.x[:, 3]
+    #
+    #             self.ax.quiver(X, Y, U, V, color='k')
     #
     #     else:
-    #         # X = self.x[:, 0]
-    #         # Y = self.x[:, 1]
-    #         # U = self.x[:, 2]
-    #         # V = self.x[:, 3]
-    #         #
-    #         # self.ax.quiver(X, Y, U, V, color='k')
+    #         if quiver_flag:
+    #             X = self.x[:, 0]
+    #             Y = self.x[:, 1]
+    #             U = self.x[:, 2]
+    #             V = self.x[:, 3]
+    #
+    #             self.ax.quiver(X, Y, U, V, color='k')
     #
     #         self.ax.plot(self.x[:, 0], self.x[:, 1], 'go', label='n = 300 s')  # Returns a tuple of line objects, thus the comma
     #         self.ax.legend()
-    #
-    #     # self.line1.set_xdata(self.x[:, 0])
-    #     # self.line1.set_ydata(self.x[:, 1])
     #
     #         self.fig.canvas.draw()
     #         self.fig.canvas.flush_events()

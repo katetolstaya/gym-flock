@@ -60,7 +60,7 @@ def twoflocks_old(N):
     vels2 = np.tile(np.array([1.0, -delta]).reshape((1, 2)), (half_n, 1))
 
     grids = np.vstack((grid1, grid2))
-    velss = 0.05 * np.vstack((vels1, vels2))
+    velss = 0.1 * np.vstack((vels1, vels2))
 
     return grids, velss
 
