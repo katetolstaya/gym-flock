@@ -20,6 +20,8 @@ env = gym.make("FlockingRelative-v0")`
 and then use the `env.reset()` and `env.step()` for interfacing with the environment as you would with other OpenAI Gym environments. 
 These implementations also include a `env.controller()` function that gives the best current set of actions to be used for imitation learning.
 
+Please note that the state of these environments returns a tuple for the states of all agents, along with a matrix of the connectivity of the network of agents. 
+
 
 
 
