@@ -28,6 +28,8 @@ class LQREnv(gym.Env):
         self.b_scale = float(config['b_scale'])
         self.alpha = float(config['alpha'])
 
+
+        ###############################
         # generate node locations
         node_loc = self.alpha * np.random.uniform(0, 1.0, size=(self.n_nodes, 2))
 
@@ -63,10 +65,11 @@ class LQREnv(gym.Env):
 
         # TODO - tune these to be reasonable
         self.max_u = 40
-        self.max_z = 200  
+        self.max_z = 200
 
         self.action_space = spaces.Box(low=-self.max_u, high=self.max_u, shape=(1,) , dtype=np.float32 )
         self.observation_space = spaces.Box(low=-self.max_z, high=self.max_z, shape=(self.filter_len,), dtype=np.float32)
+        ##############################################
 
         self.seed()
 
@@ -83,9 +86,9 @@ class LQREnv(gym.Env):
         cost = self.instant_cost(xt, ut)
 
         self.x = xt1
-        self.x_agg = self.aggregate(self.x, self.x_agg)
+        # self.x_agg = self.aggregate(self.x, self.x_agg)
 
-        return self._get_obs(), -cost, False, {}
+        return (self.x, self.a_net), -cost, False, {}
 
     def instant_cost(self, xt, ut):  # sum of differences in velocities
         xt.shape = (self.n_nodes, 1)
@@ -93,32 +96,13 @@ class LQREnv(gym.Env):
         cost = xt.T.dot(self.q_sys).dot(xt) + ut.T.dot(self.r_sys).dot(ut)
         return cost
 
-    def _get_obs(self):
-        reshaped = self.x_agg.reshape((self.n_nodes,self.filter_len))
-        return np.clip(reshaped, a_min=-self.max_z, a_max=self.max_z)
-
     def reset(self):
         self.x = np.random.uniform(low=-self.x_max, high=self.x_max, size=(self.n_nodes,))
-        self.x_agg = np.zeros((self.n_nodes, self.filter_len))
-        self.x_agg = self.aggregate(self.x, self.x_agg)
-        return self._get_obs()
+        return self.x, self.a_net
 
     def close(self):
         pass
 
-    def aggregate(self, xt, x_agg):
-        """
-        Perform aggegration operation
-        Args:
-            x_agg (): Last time step's aggregated info
-            xt (): Current state of all agents
+    def controller(self, centralized=None):
+        return
 
-        Returns:
-            Aggregated state values
-        """
-        # get rid of oldest forwarded information
-        last_agg = np.array(x_agg[:, :-1]).reshape((self.n_nodes, 1, self.filter_len - 1))
-
-        # get forwarded information from neighbors
-        features = np.nansum(last_agg * self.a_net_nan, axis=0).reshape((self.n_nodes, self.filter_len - 1))
-        return np.hstack((xt.reshape(self.n_nodes, 1), features))
