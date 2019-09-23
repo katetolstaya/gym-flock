@@ -61,6 +61,7 @@ class FlockingRelativeEnv(gym.Env):
 
         self.fig = None
         self.line1 = None
+        self.action_scalar = 10.0
 
         self.seed()
 
@@ -92,7 +93,7 @@ class FlockingRelativeEnv(gym.Env):
         #u = np.reshape(u, (-1, 2))
         assert u.shape == (self.n_agents, self.nu)
         #u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-        self.u = u
+        self.u = u * self.action_scalar
 
         # x position
         self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5
@@ -207,6 +208,7 @@ class FlockingRelativeEnv(gym.Env):
         p_sum = np.sum(potentials, axis=1).reshape((self.n_agents, self.nx_system + 2))
         controls =  np.hstack(((-  p_sum[:, 4] - p_sum[:, 2]).reshape((-1, 1)), (- p_sum[:, 3] - p_sum[:, 5]).reshape(-1, 1)))
         controls = np.clip(controls, -10, 10)
+        controls = controls / self.action_scalar
         return controls
 
     def potential_grad(self, pos_diff, r2):
