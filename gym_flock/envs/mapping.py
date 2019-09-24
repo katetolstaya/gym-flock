@@ -152,6 +152,7 @@ class MappingEnv(gym.Env):
         obs_neigh = np.zeros((self.n_agents, self.nearest_agents * 4))
         self.adj_mat = np.zeros((self.n_agents, self.n_agents))
         for i in range(self.nearest_agents):
+            print(np.shape(self.diff[:, nearest[:, i], :]))
             obs_neigh[:, i*self.nx_system:(i+1)*self.nx_system] = np.reshape(self.diff[:, nearest[:, i], :], (-1, 4))
             self.adj_mat[:, nearest[:, i]] = 1.0
 
@@ -191,7 +192,7 @@ class MappingEnv(gym.Env):
         """
 
         # TODO
-        pass
+        return np.zeros((self.n_agents, 2))
 
 
     def render(self, mode='human'):

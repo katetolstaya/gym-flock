@@ -1,6 +1,13 @@
 from gym.envs.registration import register
 
 register(
+    id='Mapping-v0',
+    entry_point='gym_flock.envs:MappingEnv',
+    max_episode_steps=1000,
+)
+
+
+register(
     id='Flocking-v0',
     entry_point='gym_flock.envs:FlockingEnv',
     max_episode_steps=1000,
