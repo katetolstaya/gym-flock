@@ -12,7 +12,7 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 
-class MappingEnv(gym.Env):
+class MappingLocalEnv(gym.Env):
 
     def __init__(self):
 
@@ -59,6 +59,7 @@ class MappingEnv(gym.Env):
         self.state_network = None
         self.state_values = None
         self.reward = None
+        self.reward_local = None
 
         self.max_accel = 1
 
@@ -157,12 +158,12 @@ class MappingEnv(gym.Env):
         # clip velocities
         self.x[:, 2:4] = np.clip(self.x[:, 2:4], -1.0*self.v_max, self.v_max)
 
-        dist_traveled = np.sum(np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1))
+        dist_traveled = np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1)
 
         self.compute_helpers()
         done = (0 == np.sum(self.target_unobserved))
 
-        return (self.state_values, self.state_network), 10.0 * self.reward - dist_traveled, done, {}
+        return (self.state_values, self.state_network), 10.0 * self.reward_local - dist_traveled, done, {}
 
     def compute_helpers(self):
 
@@ -212,6 +213,8 @@ class MappingEnv(gym.Env):
         self.target_unobserved[self.target_unobserved] = np.tile(np.logical_not(self.target_observed), (1, 2)).flatten()
 
         self.reward = np.sum(self.target_observed.astype(np.int))
+
+        self.reward_local = np.sum(self.r2_targets < self.obs_rad2, axis=1).flatten()
         self.state_values = np.hstack((obs_neigh, obs_target))
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
