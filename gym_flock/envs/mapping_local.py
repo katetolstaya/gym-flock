@@ -186,6 +186,9 @@ class MappingLocalEnv(gym.Env):
                 self.diff[ind1.flatten(), ind2.flatten(), ind3.flatten()], (-1, 4))
             self.adj_mat[:, nearest[:, i]] = 1.0
 
+        # TODO why is this necessary?
+        np.fill_diagonal(self.adj_mat, 0.0)
+
         # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
         n_neighbors = np.reshape(np.sum(self.adj_mat, axis=1), (self.n_agents, 1))  # correct - checked this
         n_neighbors[n_neighbors == 0] = 1
