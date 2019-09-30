@@ -78,7 +78,7 @@ class MappingLocalEnv(gym.Env):
         tx, ty = np.meshgrid(x, y)
         tx = tx.reshape((-1, 1))
         ty = ty.reshape((-1, 1))
-        self.obs_rad = 2.0
+        self.obs_rad = 1.0
         self.obs_rad2 = self.obs_rad * self.obs_rad
 
         self.target_x = np.stack((tx, ty), axis=1).reshape((-1, 2))
@@ -202,10 +202,11 @@ class MappingLocalEnv(gym.Env):
             self.diff_targets[:, :, 1],
             self.diff_targets[:, :, 1])
 
-        nearest_targets = np.argpartition(self.r2_targets, self.nearest_targets, axis=1)
+        n_nearest_targets = min(self.nearest_targets, np.shape(self.r2_targets)[1])
+        nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets, axis=1)
         obs_target = np.zeros((self.n_agents, self.nearest_targets * 2))
 
-        for i in range(min(self.nearest_targets, np.shape(nearest_targets)[1])):
+        for i in range(n_nearest_targets):
 
             ind2, ind3 = np.meshgrid(nearest_targets[:, i], range(2), indexing='ij')
             ind1, _ = np.meshgrid(range(self.n_agents), range(2), indexing='ij')
