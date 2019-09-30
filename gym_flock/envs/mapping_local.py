@@ -176,7 +176,7 @@ class MappingLocalEnv(gym.Env):
                                                                                     self.diff[:, :, 1])
         np.fill_diagonal(self.r2, np.Inf)
 
-        nearest = np.argsort(self.r2, axis=1)
+        nearest = np.argpartition(self.r2, self.nearest_agents, axis=1)
         obs_neigh = np.zeros((self.n_agents, self.nearest_agents * 4))
         self.adj_mat = np.zeros((self.n_agents, self.n_agents))
         for i in range(self.nearest_agents):
@@ -202,7 +202,7 @@ class MappingLocalEnv(gym.Env):
             self.diff_targets[:, :, 1],
             self.diff_targets[:, :, 1])
 
-        nearest_targets = np.argsort(self.r2_targets, axis=1)
+        nearest_targets = np.argpartition(self.r2_targets, self.nearest_targets, axis=1)
         obs_target = np.zeros((self.n_agents, self.nearest_targets * 2))
 
         for i in range(min(self.nearest_targets, np.shape(nearest_targets)[1])):
