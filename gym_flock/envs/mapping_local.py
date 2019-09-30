@@ -33,7 +33,7 @@ class MappingLocalEnv(gym.Env):
         self.nu = 2
 
         # default problem parameters
-        self.n_agents = 100  # int(config['network_size'])
+        self.n_agents = 20  # int(config['network_size'])
         # self.comm_radius = 0.9  # float(config['comm_radius'])
         self.dt = 0.1  # #float(config['system_dt'])
         self.v_max = 5.0  # float(config['max_vel_init'])
@@ -70,8 +70,8 @@ class MappingLocalEnv(gym.Env):
         #                                     dtype=np.float32)
 
         # target initialization
-        self.px_max = 100
-        self.py_max = 100
+        self.px_max = self.n_agents
+        self.py_max = self.n_agents
         x = np.linspace(-1.0 * self.px_max, self.px_max, self.n_agents)
         y = np.linspace(-1.0 * self.py_max, self.py_max, self.n_agents)
 
