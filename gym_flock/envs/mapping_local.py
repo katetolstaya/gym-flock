@@ -58,8 +58,8 @@ class MappingLocalEnv(gym.Env):
         self.target_observed = None
         self.state_network = None
         self.state_values = None
-        self.reward = None
-        self.reward_local = None
+        self.n_targets_obs = None
+        self.n_targets_obs_per_agent = None
 
         self.max_accel = 1
 
@@ -101,9 +101,9 @@ class MappingLocalEnv(gym.Env):
         x[:, 0] = np.random.uniform(low=-self.px_max, high=self.px_max, size=(self.n_agents,))
         x[:, 1] = np.random.uniform(low=-self.py_max, high=self.py_max, size=(self.n_agents,))
 
-        #bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-        x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) #+ bias[0]
-        x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) #+ bias[1]
+        # bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
+        x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[0]
+        x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[1]
 
         # keep good initialization
         self.mean_vel = np.mean(x[:, 2:4], axis=0)
@@ -156,14 +156,14 @@ class MappingLocalEnv(gym.Env):
         self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
 
         # clip velocities
-        self.x[:, 2:4] = np.clip(self.x[:, 2:4], -1.0*self.v_max, self.v_max)
+        self.x[:, 2:4] = np.clip(self.x[:, 2:4], -1.0 * self.v_max, self.v_max)
 
         dist_traveled = np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1)
 
         self.compute_helpers()
         done = (0 == np.sum(self.target_unobserved))
 
-        return (self.state_values, self.state_network), self.reward_local - 0.1 * dist_traveled, done, {}
+        return (self.state_values, self.state_network), self.n_targets_obs_per_agent - 0.1 * dist_traveled, done, {}
 
     def compute_helpers(self):
 
@@ -176,24 +176,30 @@ class MappingLocalEnv(gym.Env):
                                                                                     self.diff[:, :, 1])
         np.fill_diagonal(self.r2, np.Inf)
 
-        nearest = np.argpartition(self.r2, self.nearest_agents, axis=1)
+        nearest = np.argpartition(self.r2, range(self.nearest_agents), axis=1)[:, :self.nearest_agents]
+
         obs_neigh = np.zeros((self.n_agents, self.nearest_agents * 4))
         self.adj_mat = np.zeros((self.n_agents, self.n_agents))
+        ind1, _ = np.meshgrid(range(self.n_agents), range(4), indexing='ij')
+
+        # TODO - add own raw velocity as an observation
+        # maybe neighbor's velocities should be absolute, not relative
+
         for i in range(self.nearest_agents):
             ind2, ind3 = np.meshgrid(nearest[:, i], range(4), indexing='ij')
-            ind1, _ = np.meshgrid(range(self.n_agents), range(4), indexing='ij')
             obs_neigh[:, i * self.nx_system:(i + 1) * self.nx_system] = np.reshape(
                 self.diff[ind1.flatten(), ind2.flatten(), ind3.flatten()], (-1, 4))
             self.adj_mat[:, nearest[:, i]] = 1.0
 
-        # TODO why is this necessary?
+        # TODO why is this necessary? - the fill Inf should take care of this
         np.fill_diagonal(self.adj_mat, 0.0)
 
         # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
         n_neighbors = np.reshape(np.sum(self.adj_mat, axis=1), (self.n_agents, 1))  # correct - checked this
-        n_neighbors[n_neighbors == 0] = 1
+        n_neighbors[n_neighbors == 0] = 1  # eliminate division by 0
         self.adj_mat_mean = self.adj_mat / n_neighbors
 
+        ################################################################################################################
         # Targets computations
         self.diff_targets = self.x[:, 0:2].reshape((self.n_agents, 1, 2)) - self.target_x[
             self.target_unobserved].reshape(
@@ -203,27 +209,29 @@ class MappingLocalEnv(gym.Env):
             self.diff_targets[:, :, 1])
 
         if np.shape(self.r2_targets)[1] < self.nearest_targets:
-            n_nearest_targets = np.shape(self.r2_targets)[1]
-            nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets - 1, axis=1)
+            nearest_targets = np.argsort(self.r2_targets, axis=1)
         else:
-            n_nearest_targets = min(self.nearest_targets, np.shape(self.r2_targets)[1])
-            nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets, axis=1)
+            nearest_targets = np.argpartition(self.r2_targets, range(self.nearest_targets), axis=1)[:,
+                              :self.nearest_targets]
+
+        n_nearest_targets = min(self.nearest_targets, np.shape(self.r2_targets)[1])
+
         obs_target = np.zeros((self.n_agents, self.nearest_targets * 2))
-
+        ind1, _ = np.meshgrid(range(self.n_agents), range(2), indexing='ij')
         for i in range(n_nearest_targets):
-
             ind2, ind3 = np.meshgrid(nearest_targets[:, i], range(2), indexing='ij')
-            ind1, _ = np.meshgrid(range(self.n_agents), range(2), indexing='ij')
             obs_target[:, i * 2:(i + 1) * 2] = np.reshape(
                 self.diff_targets[ind1.flatten(), ind2.flatten(), ind3.flatten()], (-1, 2))
 
         self.target_observed = np.any(self.r2_targets < self.obs_rad2, axis=0).reshape((-1, 1))
         self.target_unobserved[self.target_unobserved] = np.tile(np.logical_not(self.target_observed), (1, 2)).flatten()
 
-        self.reward = np.sum(self.target_observed.astype(np.int))
+        # self.n_targets_obs = np.sum(self.target_observed.astype(np.int))
 
-        self.reward_local = np.sum(self.r2_targets < self.obs_rad2, axis=1).flatten()
-        self.state_values = np.hstack((obs_neigh, obs_target))
+        self.n_targets_obs_per_agent = np.sum(self.r2_targets < self.obs_rad2, axis=1).flatten()
+
+        # add own velocity as an observation
+        self.state_values = np.hstack((self.x[:, 2:4], obs_neigh, obs_target))
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
 
@@ -267,7 +275,7 @@ class MappingLocalEnv(gym.Env):
         else:
             self.line1.set_xdata(self.x[:, 0])
             self.line1.set_ydata(self.x[:, 1])
-            locs = self.target_x[self.target_unobserved].reshape((-1,2))
+            locs = self.target_x[self.target_unobserved].reshape((-1, 2))
             self.line2.set_xdata(locs[:, 0])
             self.line2.set_ydata(locs[:, 1])
 
