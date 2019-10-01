@@ -202,8 +202,12 @@ class MappingLocalEnv(gym.Env):
             self.diff_targets[:, :, 1],
             self.diff_targets[:, :, 1])
 
-        n_nearest_targets = min(self.nearest_targets, np.shape(self.r2_targets)[1])
-        nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets, axis=1)
+        if np.shape(self.r2_targets)[1] < self.nearest_targets:
+            n_nearest_targets = np.shape(self.r2_targets)[1]
+            nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets - 1, axis=1)
+        else:
+            n_nearest_targets = min(self.nearest_targets, np.shape(self.r2_targets)[1])
+            nearest_targets = np.argpartition(self.r2_targets, n_nearest_targets, axis=1)
         obs_target = np.zeros((self.n_agents, self.nearest_targets * 2))
 
         for i in range(n_nearest_targets):
