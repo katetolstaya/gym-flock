@@ -21,8 +21,8 @@ class MappingLocalEnv(gym.Env):
         # config.read(config_file)
         # config = config['flock']
 
-        self.nearest_agents = 7
-        self.nearest_targets = 7
+        self.nearest_agents = 4
+        self.nearest_targets = 4
 
         self.mean_pooling = True  # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
