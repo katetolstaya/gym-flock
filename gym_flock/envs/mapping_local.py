@@ -163,7 +163,7 @@ class MappingLocalEnv(gym.Env):
         self.compute_helpers()
         done = (0 == np.sum(self.target_unobserved))
 
-        return (self.state_values, self.state_network), 2.0 * self.reward_local - dist_traveled, done, {}
+        return (self.state_values, self.state_network), self.reward_local - 0.1 * dist_traveled, done, {}
 
     def compute_helpers(self):
 
