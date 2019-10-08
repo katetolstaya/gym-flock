@@ -16,13 +16,9 @@ class MappingLocalEnv(gym.Env):
 
     def __init__(self):
 
-        # config_file = path.join(path.dirname(__file__), "params_flock.cfg")
-        # config = configparser.ConfigParser()
-        # config.read(config_file)
-        # config = config['flock']
-
         self.nearest_agents = 4
         self.nearest_targets = 4
+        self.n_features = 2 + 4 * self.nearest_agents + 2 * self.nearest_targets
 
         self.mean_pooling = True  # normalize the adjacency matrix by the number of neighbors or not
         self.centralized = True
@@ -33,18 +29,14 @@ class MappingLocalEnv(gym.Env):
         self.nu = 2
 
         # default problem parameters
-        self.n_agents = 20  # int(config['network_size'])
-        # self.comm_radius = 0.9  # float(config['comm_radius'])
-        self.dt = 0.1  # #float(config['system_dt'])
-        self.v_max = 5.0  # float(config['max_vel_init'])
-
-        self.v_bias = self.v_max
+        self.n_agents = 20
+        self.dt = 0.1
+        self.v_max = 5.0
 
         # intitialize state matrices
+        self.np_random = None
         self.x = None
         self.u = None
-        self.mean_vel = None
-        self.init_vel = None
         self.greedy_action = None
 
         self.diff = None
@@ -61,13 +53,12 @@ class MappingLocalEnv(gym.Env):
         self.n_targets_obs = None
         self.n_targets_obs_per_agent = None
 
-        self.max_accel = 1
+        self.max_accel = 1.0  # the control space is always normalized to (-1,1)
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+                                       dtype=np.float32)
 
-        # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
-        #                                dtype=np.float32)
-        #
-        # self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, ),
-        #                                     dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, ),
+                                            dtype=np.float32)
 
         # target initialization
         self.px_max = self.n_agents
@@ -95,43 +86,43 @@ class MappingLocalEnv(gym.Env):
         self.seed()
 
     def reset(self):
-        x = np.zeros((self.n_agents, self.nx_system))
+        self.x = np.zeros((self.n_agents, self.nx_system))
         self.target_unobserved = np.ones((self.n_agents * self.n_agents, 2), dtype=np.bool)
-
-        x[:, 0] = np.random.uniform(low=-self.px_max, high=self.px_max, size=(self.n_agents,))
-        x[:, 1] = np.random.uniform(low=-self.py_max, high=self.py_max, size=(self.n_agents,))
-
-        # bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-        x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[0]
-        x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[1]
-
-        # keep good initialization
-        self.mean_vel = np.mean(x[:, 2:4], axis=0)
-        self.init_vel = x[:, 2:4]
-        self.x = x
-        # self.a_net = self.get_connectivity(self.x)
+        self.x[:, 0] = np.random.uniform(low=-self.px_max, high=self.px_max, size=(self.n_agents,))
+        self.x[:, 1] = np.random.uniform(low=-self.py_max, high=self.py_max, size=(self.n_agents,))
+        self.x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[0]
+        self.x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[1]
         self.compute_helpers()
         return self.state_values, self.state_network
 
     def params_from_cfg(self, args):
-        # TODO
-        pass
-        # # self.comm_radius = args.getfloat('comm_radius')
-        # # self.comm_radius2 = self.comm_radius * self.comm_radius
-        # # self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
-        # #
-        # # self.n_agents = args.getint('n_agents')
-        # # self.r_max = self.r_max * np.sqrt(self.n_agents)
-        #
-        # # self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
-        # #                                dtype=np.float32)
-        # #
-        # # self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
-        # #                                     dtype=np.float32)
-        #
-        # self.v_max = args.getfloat('v_max')
-        # self.v_bias = self.v_max
-        # self.dt = args.getfloat('dt')
+        self.n_agents = args.getint('n_agents')
+        self.nearest_agents = args.getint('nearest_agents')
+        self.nearest_targets = args.getint('nearest_targets')
+        self.n_features = 2 + 4 * self.nearest_agents + 2 * self.nearest_targets
+        self.action_scalar = args.getfloat('action_scalar')
+
+        # change number of targets and related params
+        self.px_max = self.n_agents
+        self.py_max = self.n_agents
+        x = np.linspace(-1.0 * self.px_max, self.px_max, self.n_agents)
+        y = np.linspace(-1.0 * self.py_max, self.py_max, self.n_agents)
+        tx, ty = np.meshgrid(x, y)
+        tx = tx.reshape((-1, 1))
+        ty = ty.reshape((-1, 1))
+        self.target_x = np.stack((tx, ty), axis=1).reshape((-1, 2))
+        self.target_unobserved = np.ones((self.n_agents * self.n_agents, 2), dtype=np.bool)
+
+        # sensor model - observation radius
+        self.obs_rad = args.getfloat('obs_radius')
+        self.obs_rad2 = self.obs_rad * self.obs_rad
+
+        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+                                       dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
+                                            dtype=np.float32)
+        self.v_max = args.getfloat('v_max')
+        self.dt = args.getfloat('dt')
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -139,7 +130,6 @@ class MappingLocalEnv(gym.Env):
 
     def step(self, u):
 
-        # u = np.reshape(u, (-1, 2))
         assert u.shape == (self.n_agents, self.nu)
         u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
         self.u = u * self.action_scalar
@@ -154,21 +144,22 @@ class MappingLocalEnv(gym.Env):
         self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt
         # y velocity
         self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
-
         # clip velocities
         self.x[:, 2:4] = np.clip(self.x[:, 2:4], -1.0 * self.v_max, self.v_max)
 
-        dist_traveled = np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1)
-
         self.compute_helpers()
+
+        # episode finished when all targets have been observed
         done = (0 == np.sum(self.target_unobserved))
+        dist_traveled = np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1)
 
         return (self.state_values, self.state_network), self.n_targets_obs_per_agent - 0.1 * dist_traveled, done, {}
 
     def compute_helpers(self):
 
-        # TODO - check this, and initialize stuff in the init(), and try to make more efficient
+        # TODO - check all of this and try to make more efficient
 
+        ################################################################################################################
         # Neighbors computations
         self.diff = self.x.reshape((self.n_agents, 1, self.nx_system)) - self.x.reshape(
             (1, self.n_agents, self.nx_system))
@@ -182,9 +173,7 @@ class MappingLocalEnv(gym.Env):
         self.adj_mat = np.zeros((self.n_agents, self.n_agents))
         ind1, _ = np.meshgrid(range(self.n_agents), range(4), indexing='ij')
 
-        # TODO - add own raw velocity as an observation
-        # maybe neighbor's velocities should be absolute, not relative
-
+        # TODO maybe neighbor's velocities should be absolute, not relative
         for i in range(self.nearest_agents):
             ind2, ind3 = np.meshgrid(nearest[:, i], range(4), indexing='ij')
             obs_neigh[:, i * self.nx_system:(i + 1) * self.nx_system] = np.reshape(
@@ -242,15 +231,13 @@ class MappingLocalEnv(gym.Env):
 
     def controller(self):
         """
-        The controller for flocking from Turner 2003.
-        Returns: the optimal action
+        A proportional controller to drive each agent towards its nearest target
+        Returns: the control action
         """
-
-        # TODO
-        # return np.zeros((self.n_agents, 2))
+        # TODO - implement a better baseline
         return self.greedy_action / 10.0
 
-    def render(self, mode='human'):
+    def render(self, mode="human"):
         """
         Render the environment with agents as points in 2D space
         """
@@ -266,12 +253,10 @@ class MappingLocalEnv(gym.Env):
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
-            plt.title('GNN Controller')
+            # plt.title('GNN Controller')
             self.fig = fig
             self.line1 = line1
             self.line2 = line2
-
-            # TODO render unobserved targets
         else:
             self.line1.set_xdata(self.x[:, 0])
             self.line1.set_ydata(self.x[:, 1])
