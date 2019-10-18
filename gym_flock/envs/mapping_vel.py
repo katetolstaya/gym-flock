@@ -210,7 +210,7 @@ class MappingVelEnv(gym.Env):
         self.n_targets_obs_per_agent = np.sum(self.r2_targets < self.obs_rad2, axis=1).flatten()
 
         # # add own velocity as an observation
-        # self.state_values = np.hstack((self.x[:, 2:4], obs_neigh, obs_target))
+        self.state_values = np.hstack((obs_neigh, obs_target))
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
 
