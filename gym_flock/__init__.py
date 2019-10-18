@@ -6,6 +6,11 @@ register(
     max_episode_steps=1000,
 )
 
+register(
+    id='MappingVel-v0',
+    entry_point='gym_flock.envs:MappingVelEnv',
+    max_episode_steps=1000,
+)
 
 register(
     id='Mapping-v0',

@@ -12,7 +12,7 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 
-class MappingLocalEnv(gym.Env):
+class MappingVelEnv(gym.Env):
 
     def __init__(self):
 
@@ -24,14 +24,13 @@ class MappingLocalEnv(gym.Env):
         self.centralized = True
 
         # number states per agent
-        self.nx_system = 4
+        self.nx_system = 2
         # number of actions per agent
         self.nu = 2
 
         # default problem parameters
         self.n_agents = 20
         self.dt = 0.1
-        self.v_max = 5.0
 
         # intitialize state matrices
         self.np_random = None
@@ -53,8 +52,8 @@ class MappingLocalEnv(gym.Env):
         self.n_targets_obs = None
         self.n_targets_obs_per_agent = None
 
-        self.max_accel = 1.0  # the control space is always normalized to (-1,1)
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+        self.max_vel = 1.0  # the control space is always normalized to (-1,1)
+        self.action_space = spaces.Box(low=-self.max_vel, high=self.max_vel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
 
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, ),
@@ -81,7 +80,7 @@ class MappingLocalEnv(gym.Env):
         self.ax = None
         self.line1 = None
         self.line2 = None
-        self.action_scalar = 10.0
+        self.action_scalar = 1.0
 
         self.seed()
 
@@ -90,8 +89,6 @@ class MappingLocalEnv(gym.Env):
         self.target_unobserved = np.ones((self.n_agents * self.n_agents, 2), dtype=np.bool)
         self.x[:, 0] = np.random.uniform(low=-self.px_max, high=self.px_max, size=(self.n_agents,))
         self.x[:, 1] = np.random.uniform(low=-self.py_max, high=self.py_max, size=(self.n_agents,))
-        self.x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[0]
-        self.x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,))  # + bias[1]
         self.compute_helpers()
         return self.state_values, self.state_network
 
@@ -99,7 +96,7 @@ class MappingLocalEnv(gym.Env):
         self.n_agents = args.getint('n_agents')
         self.nearest_agents = args.getint('nearest_agents')
         self.nearest_targets = args.getint('nearest_targets')
-        self.n_features = 2 + 4 * self.nearest_agents + 2 * self.nearest_targets
+        self.n_features = 2 * self.nearest_agents + 2 * self.nearest_targets
         self.action_scalar = args.getfloat('action_scalar')
 
         # change number of targets and related params
@@ -117,11 +114,10 @@ class MappingLocalEnv(gym.Env):
         self.obs_rad = args.getfloat('obs_radius')
         self.obs_rad2 = self.obs_rad * self.obs_rad
 
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(2 * self.n_agents,),
+        self.action_space = spaces.Box(low=-self.max_vel, high=self.max_vel, shape=(2 * self.n_agents,),
                                        dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.n_features),
                                             dtype=np.float32)
-        self.v_max = args.getfloat('v_max')
         self.dt = args.getfloat('dt')
 
     def seed(self, seed=None):
@@ -131,21 +127,15 @@ class MappingLocalEnv(gym.Env):
     def step(self, u):
 
         assert u.shape == (self.n_agents, self.nu)
-        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
+        u = np.clip(u, a_min=-self.max_vel, a_max=self.max_vel)
         self.u = u * self.action_scalar
 
         old_x = np.copy(self.x)
 
         # x position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5
+        self.x[:, 0] = self.x[:, 0] + self.u[:, 0] * self.dt
         # y position
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt + self.u[:, 1] * self.dt * self.dt * 0.5
-        # x velocity
-        self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt
-        # y velocity
-        self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
-        # clip velocities
-        self.x[:, 2:4] = np.clip(self.x[:, 2:4], -1.0 * self.v_max, self.v_max)
+        self.x[:, 1] = self.x[:, 1] + self.u[:, 1] * self.dt
 
         self.compute_helpers()
 
@@ -169,15 +159,15 @@ class MappingLocalEnv(gym.Env):
 
         nearest = np.argpartition(self.r2, range(self.nearest_agents), axis=1)[:, :self.nearest_agents]
 
-        obs_neigh = np.zeros((self.n_agents, self.nearest_agents * 4))
+        obs_neigh = np.zeros((self.n_agents, self.nearest_agents * 2))
         self.adj_mat = np.zeros((self.n_agents, self.n_agents))
-        ind1, _ = np.meshgrid(range(self.n_agents), range(4), indexing='ij')
+        ind1, _ = np.meshgrid(range(self.n_agents), range(2), indexing='ij')
 
         # TODO maybe neighbor's velocities should be absolute, not relative
         for i in range(self.nearest_agents):
-            ind2, ind3 = np.meshgrid(nearest[:, i], range(4), indexing='ij')
+            ind2, ind3 = np.meshgrid(nearest[:, i], range(2), indexing='ij')
             obs_neigh[:, i * self.nx_system:(i + 1) * self.nx_system] = np.reshape(
-                self.diff[ind1.flatten(), ind2.flatten(), ind3.flatten()], (-1, 4))
+                self.diff[ind1.flatten(), ind2.flatten(), ind3.flatten()], (-1, 2))
             self.adj_mat[:, nearest[:, i]] = 1.0
 
         # TODO why is this necessary? - the fill Inf should take care of this
@@ -219,8 +209,8 @@ class MappingLocalEnv(gym.Env):
 
         self.n_targets_obs_per_agent = np.sum(self.r2_targets < self.obs_rad2, axis=1).flatten()
 
-        # add own velocity as an observation
-        self.state_values = np.hstack((self.x[:, 2:4], obs_neigh, obs_target))
+        # # add own velocity as an observation
+        # self.state_values = np.hstack((self.x[:, 2:4], obs_neigh, obs_target))
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
 
