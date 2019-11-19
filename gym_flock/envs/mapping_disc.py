@@ -126,7 +126,6 @@ class MappingDiscEnv(gym.Env):
         return [seed]
 
     def step(self, u):
-
         u = np.reshape(u, (-1, 1))
         u = self.discrete_actions[np.reshape(range(self.n_agents), (-1, 1)), np.hstack((u * 2, u * 2 + 1))]
         assert u.shape == (self.n_agents, self.nu)
@@ -216,7 +215,9 @@ class MappingDiscEnv(gym.Env):
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
 
-        self.discrete_actions = -1.0 * obs_target
+        self.discrete_actions = np.hstack((-1.0 * obs_target, np.zeros((self.n_agents, 2))))
+
+
 
         if self.mean_pooling:
             self.state_network = self.adj_mat_mean
