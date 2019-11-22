@@ -143,7 +143,7 @@ class MappingDiscEnv(gym.Env):
         done = (0 == np.sum(self.target_unobserved))
         dist_traveled = np.linalg.norm(self.x[:, 0:2] - old_x[:, 0:2], axis=1)
 
-        return (self.state_values, self.state_network), self.n_targets_obs_per_agent - 0.5 * dist_traveled, done, {}
+        return (self.state_values, self.state_network), self.n_targets_obs_per_agent - 0.25 * dist_traveled, done, {}
 
     def compute_helpers(self):
 
