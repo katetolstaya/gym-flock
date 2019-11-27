@@ -52,6 +52,7 @@ class MappingDiscEnv(gym.Env):
         self.state_values = None
         self.n_targets_obs = None
         self.n_targets_obs_per_agent = None
+        self.observe_neighbors = True
 
         self.max_vel = 1.0  # the control space is always normalized to (-1,1)
         self.action_space = spaces.Discrete(self.nearest_targets)
@@ -99,6 +100,8 @@ class MappingDiscEnv(gym.Env):
         self.action_space = spaces.Discrete(self.nearest_targets)
         self.n_features = 2 * self.nearest_agents + 2 * self.nearest_targets
         self.action_scalar = args.getfloat('action_scalar')
+
+        self.observe_neighbors = args.getboolean('observe_neighbors')
 
         # change number of targets and related params
         self.px_max = self.n_agents
@@ -211,13 +214,14 @@ class MappingDiscEnv(gym.Env):
         self.n_targets_obs_per_agent[nearest_agent_per_target[self.target_observed]] += 1
 
         # # add own velocity as an observation
-        self.state_values = np.hstack((obs_neigh, obs_target))
+        if self.observe_neighbors:
+            self.state_values = np.hstack((obs_neigh, obs_target))
+        else:
+            self.state_values = obs_target
 
         self.greedy_action = -1.0 * obs_target[:, 0:2]
 
         self.discrete_actions = np.hstack((-1.0 * obs_target, np.zeros((self.n_agents, 2))))
-
-
 
         if self.mean_pooling:
             self.state_network = self.adj_mat_mean
