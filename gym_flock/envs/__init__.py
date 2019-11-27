@@ -9,6 +9,7 @@ from gym_flock.envs.flocking_leader import FlockingLeaderEnv
 from gym_flock.envs.formation_flying import FormationFlyingEnv
 from gym_flock.envs.flocking_stoch import FlockingStochasticEnv
 from gym_flock.envs.flocking_twoflocks import FlockingTwoFlocksEnv
+from gym_flock.envs.shepherding import ShepherdingEnv
 
 try:
 	import airsim

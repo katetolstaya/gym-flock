@@ -1,6 +1,13 @@
 from gym.envs.registration import register
 
 register(
+    id='Shepherding-v0',
+    entry_point='gym_flock.envs:ShepherdingEnv',
+    max_episode_steps=1000,
+)
+
+
+register(
     id='MappingDisc-v0',
     entry_point='gym_flock.envs:MappingDiscEnv',
     max_episode_steps=1000,
