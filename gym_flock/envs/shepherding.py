@@ -6,6 +6,7 @@ import configparser
 from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
+import matplotlib.patches as patches
 
 font = {'family': 'sans-serif',
         'weight': 'bold',
@@ -15,180 +16,177 @@ font = {'family': 'sans-serif',
 class ShepherdingEnv(gym.Env):
 
     def __init__(self):
+        """Initialize the shepherding environment
+        """
         self.mean_pooling = True  # normalize the adjacency matrix by the number of neighbors or not
 
-        # dim of state per agent, 2D position plus 2D velocity
-        self.nx_system = 4
+        # dim of state per agent - 2D position
+        self.nx = 2
         # number of actions per agent
         self.nu = 2
 
-        # default problem parameters
+        # number of sheep and shepherds
         self.n_sheep = 50
         self.n_shepherds = 25
         self.n_agents = self.n_sheep + self.n_shepherds
-        self.comm_radius = 2.0  # float(config['comm_radius'])
-        self.dt = 0.01  # #float(config['system_dt'])
-        self.v_max = 5.0  # float(config['max_vel_init'])
-        self.r_max_init = 1.0  # 10.0  #  float(config['max_rad_init'])
-        self.r_max = self.r_max_init * np.sqrt(self.n_agents)
-        self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
-        self.v_bias = self.v_max
+        self.agent_identities = np.vstack((np.ones((self.n_shepherds, 1)), np.zeros((self.n_sheep, 1))))
 
-        self.goal_offset = np.array([self.r_max * 5, self.r_max * 5])
+        # dynamics parameters - TODO tune these parameters
+        self.dt = 0.01
+        self.v_max = 2.0
+        self.action_scalar = 10.0  # shepherd controller gain
 
-        self.force_weights = np.hstack((4.5 * np.ones((1, self.n_shepherds, 1)), 1.0 * np.ones((1, self.n_sheep, 1))))
+        # initialization parameters
+        self.r_max_init = 1.0
+        self.r_max = self.r_max_init * np.sqrt(self.n_agents)  # radius of disk on which agents are initialized
 
-        # intitialize state matrices
-        self.x = None
-        self.u = None
-        self.mean_vel = None
-        self.init_vel = None
-        self.adj_mat_mean = None
-        self.x_features = None
-        self.repulsion = np.zeros((self.n_agents, 2))
-        self.adj_mat = None
-        self.state_network = None
-        self.r2 = None
-        self.diff = None
+        # goal parameters
+        self.goal_offset = np.array([-self.r_max * 3, 0])
+        self.goal_region_radius = 0.5 * self.r_max
 
-        self.max_accel = 1
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_shepherds, self.nu),
+        # graph parameters
+        self.comm_radius = 2.0
+        self.comm_radius_2 = self.comm_radius * self.comm_radius
+
+        # shepherd-sheep repulsion force is 4.5x, sheep-sheep repulsion is 1x  # TODO tune this
+        self.force_weights = 0.1 * np.hstack((4.5 * np.ones((1, self.n_shepherds, 1)), 1.0 * np.ones((1, self.n_sheep, 1))))
+
+        # intitialize state matrix
+        self.x = np.zeros((self.n_agents, self.nx))
+
+        # problems's observation and action spaces
+        self.action_space = spaces.Box(low=-self.v_max, high=self.v_max, shape=(self.n_shepherds, self.nu),
                                        dtype=np.float32)
 
-        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx_system),
+        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx),
                                             dtype=np.float32)
 
+        # plotting parameters
         self.fig = None
         self.line1 = None
         self.line2 = None
-        self.action_scalar = 10.0  # controller gain
+
+        self.np_random = None
 
         self.seed()
 
-    def params_from_cfg(self, args):
-
-        self.comm_radius = args.getfloat('comm_radius')
-        self.comm_radius2 = self.comm_radius * self.comm_radius
-        self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
-
-        self.n_sheep = args.getint('n_sheep')
-        self.n_shepherds = args.getint('n_shepherds')
-        self.n_agents = self.n_sheep + self.n_shepherds
-        self.r_max = self.r_max_init * np.sqrt(self.n_agents)
-        self.goal_offset = np.array([self.r_max * 5, self.r_max * 5])
-
-        self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_shepherds, 2),
-                                       dtype=np.float32)
-
-        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx_system),
-                                            dtype=np.float32)
-
-        self.v_max = args.getfloat('v_max')
-        self.v_bias = self.v_max
-        self.dt = args.getfloat('dt')
-
     def seed(self, seed=None):
+        """ Seed the numpy random number generator
+        :param seed: random seed
+        :return: random seed
+        """
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def step(self, u):
-
+        """ Simulate a single step of the environment dynamics
+        The output is (observations, adjacency matrix), cost, done_flag, options
+        The observations are of dimension (Number of shepherds + Number of sheep) x Number of observations
+        Adjacency matrix is (Number of shepherds + Number of sheep) x (Number of shepherds + Number of sheep)
+        :param u: control input for shepherds
+        :return: described above
+        """
         assert u.shape == (self.n_shepherds, self.nu)
-        u = np.clip(u, a_min=-self.max_accel, a_max=self.max_accel)
-        self.u = np.vstack((u * self.action_scalar, self.repulsion[self.n_shepherds:, 0:2]))
+        u = np.vstack((u * self.action_scalar, self._compute_sheep_controller()))
 
-        # TODO clip all velocities
+        # clip the velocities
+        u = np.clip(u, a_min=-self.v_max, a_max=self.v_max)
 
         # x position
-        self.x[:, 0] = self.x[:, 0] + self.x[:, 2] * self.dt + self.u[:, 0] * self.dt * self.dt * 0.5
+        self.x[:, 0] = self.x[:, 0] + u[:, 0] * self.dt
         # y position
-        self.x[:, 1] = self.x[:, 1] + self.x[:, 3] * self.dt + self.u[:, 1] * self.dt * self.dt * 0.5
-        # x velocity
-        self.x[:, 2] = self.x[:, 2] + self.u[:, 0] * self.dt
-        # y velocity
-        self.x[:, 3] = self.x[:, 3] + self.u[:, 1] * self.dt
+        self.x[:, 1] = self.x[:, 1] + u[:, 1] * self.dt
 
-        self.compute_helpers()
+        return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost, False, {}
 
-        return (self.x, self.state_network), self.instant_cost(), False, {}
+    def _compute_observations(self):
+        """
+        Uses current system state to compute the observations of agents
+        The observations are the 2D positions of all agents with respect to the goal
+        And the identities of the agents, 1 if shepherd, 0 if sheep
+        The dimension is (Number of shepherds + Number of sheep) x 3
+        :return: Observations of system state
+        """
+        return np.hstack((self.x, self.agent_identities))
 
-    def compute_helpers(self):
+    def _compute_inter_agent_dist_sq(self):
+        """
+        Compute the relative positions between all pairs of agents, and the distance between agents squared
+        :return: relative position, distance squared
+        """
+        diff = self.x.reshape((self.n_agents, 1, self.nx)) - self.x.reshape(
+            (1, self.n_agents, self.nx))
+        r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1])
+        return r2, diff
 
-        self.diff = self.x.reshape((self.n_agents, 1, self.nx_system)) - self.x.reshape(
-            (1, self.n_agents, self.nx_system))
-        self.r2 = np.multiply(self.diff[:, :, 0], self.diff[:, :, 0]) + np.multiply(self.diff[:, :, 1],
-                                                                                    self.diff[:, :, 1])
-        np.fill_diagonal(self.r2, np.Inf)
+    def _compute_adj_mat(self, self_loops=False, normalize_by_neighbors=False):
+        """
+        Compute the adjacency matrix among all agents in the flock. The communication radius is fixed among all agents
+        to be self.comm_radius
+        :param self_loops: should self loops be present? Determines the diagonal values in the adj mat
+        :param normalize_by_neighbors: Should the adjacency matrix be normalized by the number of neighbors?
+        :return: The adjacency matrix (Number of shepherds + Number of sheep) x (Number of shepherds + Number of sheep)
+        """
+        r2, _ = self._compute_inter_agent_dist_sq()
+        if not self_loops:
+            np.fill_diagonal(r2, np.Inf)
 
-        self.adj_mat = (self.r2 < self.comm_radius2).astype(float)
+        adj_mat = (r2 < self.comm_radius_2).astype(float)
+        if normalize_by_neighbors:
+            n_neighbors = np.reshape(np.sum(adj_mat, axis=1), (self.n_agents, 1))
+            n_neighbors[n_neighbors == 0] = 1
+            adj_mat = adj_mat / n_neighbors
+        return adj_mat
 
-        # Normalize the adjacency matrix by the number of neighbors - results in mean pooling, instead of sum pooling
-        n_neighbors = np.reshape(np.sum(self.adj_mat, axis=1), (self.n_agents, 1))  # correct - checked this
-        n_neighbors[n_neighbors == 0] = 1
-        self.adj_mat_mean = self.adj_mat / n_neighbors
+    def _compute_sheep_controller(self):
+        """
+        Compute the controller for sheep. Sheep are repelled by shepherds and other sheep. Shepherd-sheep repulsion
+        force is 4.5x, sheep-sheep repulsion is 1x and this is stored in self.force_weights
+        :return: sheep repulsion velocities
+        """
+        r2, diff = self._compute_inter_agent_dist_sq()
+        np.fill_diagonal(r2, np.Inf)
+        potential_components = np.dstack((np.divide(diff[:, :, 0], r2), np.divide(diff[:, :, 1], r2)))
+        repulsion = np.sum(self.force_weights * potential_components, axis=1)
+        repulsion = repulsion.reshape((self.n_agents, self.nu))
+        return repulsion[self.n_shepherds:, 0:2]
 
-        self.x_features = np.dstack((np.divide(self.diff[:, :, 0], self.r2), np.divide(self.diff[:, :, 1], self.r2)))
-
-        self.repulsion = np.sum(self.force_weights * self.x_features, axis=1)
-        self.repulsion = self.repulsion.reshape((self.n_agents, self.nu))
-        self.repulsion = np.clip(self.repulsion, a_min=-self.max_accel, a_max=self.max_accel)
-
-        if self.mean_pooling:
-            self.state_network = self.adj_mat_mean
-        else:
-            self.state_network = self.adj_mat
-
-    def instant_cost(self):  # sum of differences in velocities
-        return -1.0 * np.sum(np.linalg.norm(self.x[self.n_shepherds:, 0:2], axis=1))
+    def _instant_cost(self):
+        """
+        Compute the reward for the MDP, which is the fraction of sheep in the goal region
+        :return: reward
+        """
+        return np.sum(np.linalg.norm(self.x[self.n_shepherds:, 0:2], axis=1) < self.goal_region_radius) / self.n_sheep
 
     def reset(self):
-        x = np.zeros((self.n_agents, self.nx_system))
-        degree = 0
-        min_dist = 0
-        min_dist_thresh = 0.1  # 0.25
+        """
+        Reset system state. Agents are initialized on a disk of radius self.r_max
+        :return: observations, adjacency matrix
+        """
+        # initialize agents on a disk
+        length = np.sqrt(self.np_random.uniform(0, self.r_max, size=(self.n_agents,)))
+        angle = np.pi * self.np_random.uniform(0, 2, size=(self.n_agents,))
+        self.x[:, 0] = length * np.cos(angle)
+        self.x[:, 1] = length * np.sin(angle)
 
-        # generate an initial configuration with all agents connected,
-        # and minimum distance between agents > min_dist_thresh
-        while degree < 2 or min_dist < min_dist_thresh:
-            # randomly initialize the location and velocity of all agents
-            length = np.sqrt(np.random.uniform(0, self.r_max, size=(self.n_agents,)))
-            angle = np.pi * np.random.uniform(0, 2, size=(self.n_agents,))
-            x[:, 0] = length * np.cos(angle)
-            x[:, 1] = length * np.sin(angle)
-
-            bias = np.random.uniform(low=-self.v_bias, high=self.v_bias, size=(2,))
-            x[:, 2] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[0]
-            x[:, 3] = np.random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_agents,)) + bias[1]
-
-            # compute distances between agents
-            x_loc = np.reshape(x[:, 0:2], (self.n_agents, 2, 1))
-            a_net = np.sum(np.square(np.transpose(x_loc, (0, 2, 1)) - np.transpose(x_loc, (2, 0, 1))), axis=2)
-            np.fill_diagonal(a_net, np.Inf)
-
-            # compute minimum distance between agents and degree of network to check if good initial configuration
-            min_dist = np.sqrt(np.min(np.min(a_net)))
-            a_net = a_net < self.comm_radius2
-            degree = np.min(np.sum(a_net.astype(int), axis=1))
-
-        # keep good initialization
-        self.mean_vel = np.mean(x[:, 2:4], axis=0)
-        self.init_vel = x[:, 2:4]
-        self.x = x
+        # goal is at (0, 0) and agents start at an offset from the goal
         self.x[:, 0] += self.goal_offset[0]
         self.x[:, 1] += self.goal_offset[1]
-        self.repulsion = np.zeros((self.n_agents, 2))
 
-        self.compute_helpers()
-        return self.x, self.state_network
+        return self._compute_observations(), self._compute_adj_mat()
 
-    def controller(self, centralized=None):
+    def controller(self):
+        """
+        Compute a baseline shepherd controller based on the potential function based approach
+        :return: shepherd velocities
+        """
+        # TODO shepherd controller code here
         return np.zeros((self.n_shepherds, 2))
-        # pass
 
     def render(self, mode='human'):
         """
         Render the environment with agents as points in 2D space
+        :param mode: required by gym
         """
         if self.fig is None:
             plt.ion()
@@ -199,8 +197,9 @@ class ShepherdingEnv(gym.Env):
                                                                                               'o')
 
             self.ax.plot([0], [0], 'kx')
-            plt.ylim(-1.0 * self.r_max, 10.0 * self.r_max)
-            plt.xlim(-1.0 * self.r_max, 10.0 * self.r_max)
+
+            plt.xlim(-1.0 * self.r_max + self.goal_offset[0], self.r_max)
+            plt.ylim(-1.0 * self.r_max + self.goal_offset[1], self.r_max)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
@@ -208,6 +207,9 @@ class ShepherdingEnv(gym.Env):
             self.fig = fig
             self.line1 = line1
             self.line2 = line2
+
+            circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
+            self.ax.add_patch(circ)
 
         self.line1.set_xdata(self.x[0:self.n_shepherds, 0])
         self.line1.set_ydata(self.x[0:self.n_shepherds, 1])
@@ -217,4 +219,31 @@ class ShepherdingEnv(gym.Env):
         self.fig.canvas.flush_events()
 
     def close(self):
+        """
+        Close the environment
+        """
         pass
+
+
+    # TODO function for loading from config file
+    # def params_from_cfg(self, args):
+    #
+    #     self.comm_radius = args.getfloat('comm_radius')
+    #     self.comm_radius2 = self.comm_radius * self.comm_radius
+    #     self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
+    #
+    #     self.n_sheep = args.getint('n_sheep')
+    #     self.n_shepherds = args.getint('n_shepherds')
+    #     self.n_agents = self.n_sheep + self.n_shepherds
+    #     self.r_max = self.r_max_init * np.sqrt(self.n_agents)
+    #     self.goal_offset = np.array([self.r_max * 5, self.r_max * 5])
+    #
+    #     self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_shepherds, 2),
+    #                                    dtype=np.float32)
+    #
+    #     self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx_system),
+    #                                         dtype=np.float32)
+    #
+    #     self.v_max = args.getfloat('v_max')
+    #     self.v_bias = self.v_max
+    #     self.dt = args.getfloat('dt')
