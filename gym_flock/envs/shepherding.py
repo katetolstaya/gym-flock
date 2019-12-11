@@ -51,7 +51,7 @@ class ShepherdingEnv(gym.Env):
         # shepherd-sheep repulsion force is 4.5x, sheep-sheep repulsion is 1x  # TODO tune this
         self.force_weights = 0.1 * np.hstack((4.5 * np.ones((1, self.n_shepherds, 1)), 1.0 * np.ones((1, self.n_sheep, 1))))
 
-        # intitialize state matrix
+        # initialize state matrix
         self.x = np.zeros((self.n_agents, self.nx))
 
         # problems's observation and action spaces
