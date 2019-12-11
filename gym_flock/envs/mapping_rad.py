@@ -297,8 +297,10 @@ class MappingRadEnv(gym.Env):
         # problem's observation and action spaces
 
         # each robot picks which neighbor to move to
-        self.action_space = spaces.Discrete(self.n_robots * self.n_agents)
+        self.action_space = spaces.MultiDiscrete([self.n_agents] * self.n_robots)
 
         # see _compute_observations(self) for description of observation space
         self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx + 3),
                                             dtype=np.float32)
+
+
