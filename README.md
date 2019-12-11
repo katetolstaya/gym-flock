@@ -7,7 +7,12 @@
 
 ## To install
 1) Clone this repository
+2) `cd gym-flock`
 2) `pip3 install -e . `
+
+## Quick test
+In the `gym-flock` folder:
+1) `python3 test.py`
 
 ## To use
 
