@@ -119,12 +119,13 @@ class ShepherdingEnv(gym.Env):
         r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1])
         return r2, diff
 
-    def _compute_adj_mat(self, self_loops=False, normalize_by_neighbors=False):
+    def _compute_adj_mat(self, weighted_graph=True, self_loops=False, normalize_by_neighbors=False):
         """
         Compute the adjacency matrix among all agents in the flock. The communication radius is fixed among all agents
-        to be self.comm_radius
-        :param self_loops: should self loops be present? Determines the diagonal values in the adj mat
-        :param normalize_by_neighbors: Should the adjacency matrix be normalized by the number of neighbors?
+        to be self.comm_radius.
+        :param weighted_graph: should the graph be weighted by 1/distance to neighbors?
+        :param self_loops: should self loops be present in the graph? Determines the diagonal values in the adj mat
+        :param normalize_by_neighbors: should the adjacency matrix be normalized by the number of neighbors?
         :return: The adjacency matrix (Number of shepherds + Number of sheep) x (Number of shepherds + Number of sheep)
         """
         r2, _ = self._compute_inter_agent_dist_sq()
@@ -132,6 +133,11 @@ class ShepherdingEnv(gym.Env):
             np.fill_diagonal(r2, np.Inf)
 
         adj_mat = (r2 < self.comm_radius_2).astype(float)
+
+        if weighted_graph:
+            np.fill_diagonal(r2, np.Inf)
+            adj_mat = adj_mat / np.sqrt(r2)
+
         if normalize_by_neighbors:
             n_neighbors = np.reshape(np.sum(adj_mat, axis=1), (self.n_agents, 1))
             n_neighbors[n_neighbors == 0] = 1
@@ -141,7 +147,9 @@ class ShepherdingEnv(gym.Env):
     def _compute_sheep_controller(self):
         """
         Compute the controller for sheep. Sheep are repelled by shepherds and other sheep. Shepherd-sheep repulsion
-        force is 4.5x, sheep-sheep repulsion is 1x and this is stored in self.force_weights
+        force is 4.5x, sheep-sheep repulsion is 1x and this is stored in self.force_weights.
+        The x and y components of pairwise repulsion between agents are (delta_x / r^2, delta_y / r^2)
+        where delta_x and delta_y are the relative position of one agent to another.
         :return: sheep repulsion velocities
         """
         r2, diff = self._compute_inter_agent_dist_sq()
@@ -187,7 +195,7 @@ class ShepherdingEnv(gym.Env):
         """
         Render the environment with agents as points in 2D space. The shepherds are in green, the sheep in red.
         The goal region is a red circle. The plot objects are created on the first render() call and persist between
-        calls of this function. 
+        calls of this function.
         :param mode: required by gym
         """
         if self.fig is None:
