@@ -185,36 +185,50 @@ class ShepherdingEnv(gym.Env):
 
     def render(self, mode='human'):
         """
-        Render the environment with agents as points in 2D space
+        Render the environment with agents as points in 2D space. The shepherds are in green, the sheep in red.
+        The goal region is a red circle. The plot objects are created on the first render() call and persist between
+        calls of this function. 
         :param mode: required by gym
         """
         if self.fig is None:
+            # initialize plot parameters
             plt.ion()
             fig = plt.figure()
             self.ax = fig.add_subplot(111)
-            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')
-            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'r'
-                                                                                              'o')
 
+            # plot shepherds and sheep using scatter plot
+            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
+            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
+
+            # plot red circle for goal region
+            circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
+            self.ax.add_patch(circ)
+
+            # plot origin
             self.ax.plot([0], [0], 'kx')
 
+            # set plot limits, axis parameters, title
             plt.xlim(-1.0 * self.r_max + self.goal_offset[0], self.r_max)
             plt.ylim(-1.0 * self.r_max + self.goal_offset[1], self.r_max)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
             plt.title('GNN Controller')
+
+            # store plot state
             self.fig = fig
             self.line1 = line1
             self.line2 = line2
 
-            circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
-            self.ax.add_patch(circ)
-
+        # update shepherd plot
         self.line1.set_xdata(self.x[0:self.n_shepherds, 0])
         self.line1.set_ydata(self.x[0:self.n_shepherds, 1])
+
+        # update sheep plot
         self.line2.set_xdata(self.x[self.n_shepherds:, 0])
         self.line2.set_ydata(self.x[self.n_shepherds:, 1])
+
+        # draw updated figure
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
