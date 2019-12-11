@@ -1,9 +1,7 @@
 import gym
-from gym import spaces, error, utils
+from gym import spaces
 from gym.utils import seeding
 import numpy as np
-import configparser
-from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 import matplotlib.patches as patches
