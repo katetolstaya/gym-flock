@@ -95,7 +95,87 @@ class ShepherdingEnv(gym.Env):
         # y position
         self.x[:, 1] = self.x[:, 1] + u[:, 1] * self.dt
 
-        return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost, False, {}
+        return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost(), False, {}
+
+    def reset(self):
+        """
+        Reset system state. Agents are initialized on a disk of radius self.r_max
+        :return: observations, adjacency matrix
+        """
+        # initialize agents on a disk
+        length = np.sqrt(self.np_random.uniform(0, self.r_max, size=(self.n_agents,)))
+        angle = np.pi * self.np_random.uniform(0, 2, size=(self.n_agents,))
+        self.x[:, 0] = length * np.cos(angle)
+        self.x[:, 1] = length * np.sin(angle)
+
+        # goal is at (0, 0) and agents start at an offset from the goal
+        self.x[:, 0] += self.goal_offset[0]
+        self.x[:, 1] += self.goal_offset[1]
+
+        return self._compute_observations(), self._compute_adj_mat()
+
+    def controller(self):
+        """
+        Compute a baseline shepherd controller based on the potential function based approach
+        :return: shepherd velocities
+        """
+        # TODO shepherd controller code here
+        return np.zeros((self.n_shepherds, 2))
+
+    def render(self, mode='human'):
+        """
+        Render the environment with agents as points in 2D space. The shepherds are in green, the sheep in red.
+        The goal region is a red circle. The plot objects are created on the first render() call and persist between
+        calls of this function.
+        :param mode: required by gym
+        """
+        if self.fig is None:
+            # initialize plot parameters
+            plt.ion()
+            fig = plt.figure()
+            self.ax = fig.add_subplot(111)
+
+            # plot shepherds and sheep as scatter plot
+            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
+            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
+
+            # plot red circle for goal region
+            circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
+            self.ax.add_patch(circ)
+
+            # plot origin
+            self.ax.plot([0], [0], 'kx')
+
+            # set plot limits, axis parameters, title
+            plt.xlim(-1.0 * self.r_max + self.goal_offset[0], self.r_max)
+            plt.ylim(-1.0 * self.r_max + self.goal_offset[1], self.r_max)
+            a = gca()
+            a.set_xticklabels(a.get_xticks(), font)
+            a.set_yticklabels(a.get_yticks(), font)
+            plt.title('GNN Controller')
+
+            # store plot state
+            self.fig = fig
+            self.line1 = line1
+            self.line2 = line2
+
+        # update shepherd plot
+        self.line1.set_xdata(self.x[0:self.n_shepherds, 0])
+        self.line1.set_ydata(self.x[0:self.n_shepherds, 1])
+
+        # update sheep plot
+        self.line2.set_xdata(self.x[self.n_shepherds:, 0])
+        self.line2.set_ydata(self.x[self.n_shepherds:, 1])
+
+        # draw updated figure
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+    def close(self):
+        """
+        Close the environment
+        """
+        pass
 
     def _compute_observations(self):
         """
@@ -163,87 +243,6 @@ class ShepherdingEnv(gym.Env):
         :return: reward
         """
         return np.sum(np.linalg.norm(self.x[self.n_shepherds:, 0:2], axis=1) < self.goal_region_radius) / self.n_sheep
-
-    def reset(self):
-        """
-        Reset system state. Agents are initialized on a disk of radius self.r_max
-        :return: observations, adjacency matrix
-        """
-        # initialize agents on a disk
-        length = np.sqrt(self.np_random.uniform(0, self.r_max, size=(self.n_agents,)))
-        angle = np.pi * self.np_random.uniform(0, 2, size=(self.n_agents,))
-        self.x[:, 0] = length * np.cos(angle)
-        self.x[:, 1] = length * np.sin(angle)
-
-        # goal is at (0, 0) and agents start at an offset from the goal
-        self.x[:, 0] += self.goal_offset[0]
-        self.x[:, 1] += self.goal_offset[1]
-
-        return self._compute_observations(), self._compute_adj_mat()
-
-    def controller(self):
-        """
-        Compute a baseline shepherd controller based on the potential function based approach
-        :return: shepherd velocities
-        """
-        # TODO shepherd controller code here
-        return np.zeros((self.n_shepherds, 2))
-
-    def render(self, mode='human'):
-        """
-        Render the environment with agents as points in 2D space. The shepherds are in green, the sheep in red.
-        The goal region is a red circle. The plot objects are created on the first render() call and persist between
-        calls of this function.
-        :param mode: required by gym
-        """
-        if self.fig is None:
-            # initialize plot parameters
-            plt.ion()
-            fig = plt.figure()
-            self.ax = fig.add_subplot(111)
-
-            # plot shepherds and sheep using scatter plot
-            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
-            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
-
-            # plot red circle for goal region
-            circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
-            self.ax.add_patch(circ)
-
-            # plot origin
-            self.ax.plot([0], [0], 'kx')
-
-            # set plot limits, axis parameters, title
-            plt.xlim(-1.0 * self.r_max + self.goal_offset[0], self.r_max)
-            plt.ylim(-1.0 * self.r_max + self.goal_offset[1], self.r_max)
-            a = gca()
-            a.set_xticklabels(a.get_xticks(), font)
-            a.set_yticklabels(a.get_yticks(), font)
-            plt.title('GNN Controller')
-
-            # store plot state
-            self.fig = fig
-            self.line1 = line1
-            self.line2 = line2
-
-        # update shepherd plot
-        self.line1.set_xdata(self.x[0:self.n_shepherds, 0])
-        self.line1.set_ydata(self.x[0:self.n_shepherds, 1])
-
-        # update sheep plot
-        self.line2.set_xdata(self.x[self.n_shepherds:, 0])
-        self.line2.set_ydata(self.x[self.n_shepherds:, 1])
-
-        # draw updated figure
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-
-    def close(self):
-        """
-        Close the environment
-        """
-        pass
-
 
     # TODO function for loading from config file
     # def params_from_cfg(self, args):

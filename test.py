@@ -24,7 +24,9 @@ for _ in range(N):
 
         # simulate one step of the environment
         (observation, graph), reward, done, _ = env.step(action)
+        episode_reward += reward
 
         # visualize the environment
         env.render()
+    print(episode_reward)
 env.close()
