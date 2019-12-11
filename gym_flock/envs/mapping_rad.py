@@ -264,7 +264,9 @@ class MappingRadEnv(gym.Env):
         self._initialization_helper()
 
     def _initialization_helper(self):
-
+        """
+        Initialization code that is needed after params are re-loaded
+        """
         # number of agents
         self.n_agents = self.n_targets + self.n_robots
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
