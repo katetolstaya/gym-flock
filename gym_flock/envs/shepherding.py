@@ -24,8 +24,8 @@ class ShepherdingEnv(gym.Env):
         self.nu = 2
 
         # number of sheep and shepherds
-        self.n_sheep = 10
-        self.n_shepherds = 5
+        self.n_sheep = 20
+        self.n_shepherds = 10
         self.n_agents = self.n_sheep + self.n_shepherds
         self.agent_identities = np.vstack((np.ones((self.n_shepherds, 1)), np.zeros((self.n_sheep, 1))))
 
@@ -47,7 +47,7 @@ class ShepherdingEnv(gym.Env):
         self.comm_radius_2 = self.comm_radius * self.comm_radius
 
         # shepherd-sheep repulsion force is 4.5x, sheep-sheep repulsion is 1x  # TODO tune this
-        self.force_weights = 0.25 * np.hstack((2.0 * np.ones((1, self.n_shepherds, 1)), 1.0 * np.ones((1, self.n_sheep, 1))))
+        self.force_weights = 0.15 * np.hstack((1.5 * np.ones((1, self.n_shepherds, 1)), 0.25 * np.ones((1, self.n_sheep, 1))))
 
         # initialize state matrix
         self.x = np.zeros((self.n_agents, self.nx))
@@ -118,7 +118,7 @@ class ShepherdingEnv(gym.Env):
         Unycicle Model
         """
         # Feedback linearization
-        d = 0.5  # Offset from origin
+        d = 0.3 # Offset from robot center
         v = u[:, 0] * np.cos(self.x[:, 2]) + u[:, 1] * np.sin(self.x[:, 2])
         w = u[:, 0] * (-np.sin(self.x[:, 2]) / d) + u[:, 1] * (np.cos(self.x[:, 2]) / d)
 
@@ -233,12 +233,12 @@ class ShepherdingEnv(gym.Env):
                 vlr[i,:] = [0.9998, 0.8520]
         
         # Differential to Unicycle
-        L = 0.52
+        L = 0.6
         v = (vlr[:,1] + vlr[:,0])/2
         w = (vlr[:,1] - vlr[:,0])/L
         
         # Inverse linearization
-        d = 0.2 # Offset from robot center
+        d = 0.3 # Offset from robot center
         vx = v*np.cos(self.x[0:self.n_shepherds, 2]) - w*d*np.sin(self.x[0:self.n_shepherds, 2])
         vy = v*np.sin(self.x[0:self.n_shepherds, 2]) + w*d*np.cos(self.x[0:self.n_shepherds, 2])
         
@@ -297,19 +297,10 @@ class ShepherdingEnv(gym.Env):
             fig = plt.figure()
             self.ax = fig.add_subplot(111, aspect='equal')
 
-#            # plot shepherds and sheep using scatter plot
-#            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
-#            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
-#            
-#            # plot orientation
-#            uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
-#            Q = self.ax.quiver(self.x[:,0], self.x[:,1], uv[0], uv[1], units='xy', scale=2, width=0.05)
-
             # plot shepherds and sheep, location and orientation using quiver
             uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
             line1 = self.ax.quiver(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], uv[0], uv[1], units='xy', scale=2, width=0.1, color='g', headlength=4.5, headwidth=3)
             line2 = self.ax.quiver(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], uv[0], uv[1], units='xy', scale=2, width=0.1, color='r', headlength=4.5, headwidth=3)
-
 
             # plot red circle for goal region
             circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
@@ -331,8 +322,9 @@ class ShepherdingEnv(gym.Env):
             self.line1 = line1
             self.line2 = line2
 
-        # update shepherd plot
         uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
+        
+        # update shepherd plot
         self.line1.set_offsets(self.x[:self.n_shepherds, 0:2])
         self.line1.set_UVC(uv[0][:self.n_shepherds], uv[1][:self.n_shepherds])
 
