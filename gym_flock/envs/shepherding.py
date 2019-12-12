@@ -1,9 +1,7 @@
 import gym
-from gym import spaces, error, utils
+from gym import spaces
 from gym.utils import seeding
 import numpy as np
-import configparser
-from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 import matplotlib.patches as patches
@@ -65,7 +63,7 @@ class ShepherdingEnv(gym.Env):
         self.fig = None
         self.line1 = None
         self.line2 = None
-        self.Q = None
+        self.ax = None
 
         self.np_random = None
 
@@ -109,14 +107,27 @@ class ShepherdingEnv(gym.Env):
         v = u[:, 0]*np.cos(self.x[:, 2]) + u[:, 1]*np.sin(self.x[:, 2])
         w = u[:, 0]*(-np.sin(self.x[:, 2])/d) + u[:, 1]*(np.cos(self.x[:, 2])/d)
 
-        v[self.n_shepherds:] = v[self.n_shepherds:]/2 + 0.25 # Constant forward speed
+        v[self.n_shepherds:] = v[self.n_shepherds:]/2 + 0.2 # Constant forward speed
 
         # State Update (x, y, theta)
         self.x[:, 0] = self.x[:, 0] + v * np.cos(self.x[:, 2]) * self.dt
         self.x[:, 1] = self.x[:, 1] + v * np.sin(self.x[:, 2]) * self.dt        
         self.x[:, 2] = self.x[:, 2] + w * self.dt        
 
-        return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost, False, {}
+        """
+        Unycicle Model
+        """
+        # Feedback linearization
+        d = 0.5  # Offset from origin
+        v = u[:, 0] * np.cos(self.x[:, 2]) + u[:, 1] * np.sin(self.x[:, 2])
+        w = u[:, 0] * (-np.sin(self.x[:, 2]) / d) + u[:, 1] * (np.cos(self.x[:, 2]) / d)
+
+        # State Update (x, y, theta)
+        self.x[:, 0] = self.x[:, 0] + v * np.cos(self.x[:, 2]) * self.dt
+        self.x[:, 1] = self.x[:, 1] + v * np.sin(self.x[:, 2]) * self.dt
+        self.x[:, 2] = self.x[:, 2] + w * self.dt
+
+        return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost(), False, {}
 
     def _compute_observations(self):
         """
@@ -286,13 +297,19 @@ class ShepherdingEnv(gym.Env):
             fig = plt.figure()
             self.ax = fig.add_subplot(111, aspect='equal')
 
-            # plot shepherds and sheep using scatter plot
-            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
-            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
-            
-            # plot orientation
+#            # plot shepherds and sheep using scatter plot
+#            line1, = self.ax.plot(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], 'go')  # shepherds
+#            line2, = self.ax.plot(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], 'ro')  # sheep
+#            
+#            # plot orientation
+#            uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
+#            Q = self.ax.quiver(self.x[:,0], self.x[:,1], uv[0], uv[1], units='xy', scale=2, width=0.05)
+
+            # plot shepherds and sheep, location and orientation using quiver
             uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
-            Q = self.ax.quiver(self.x[:,0], self.x[:,1], uv[0], uv[1], units='xy', scale=2, width=0.05)
+            line1 = self.ax.quiver(self.x[0:self.n_shepherds, 0], self.x[0:self.n_shepherds, 1], uv[0], uv[1], units='xy', scale=2, width=0.1, color='g', headlength=4.5, headwidth=3)
+            line2 = self.ax.quiver(self.x[self.n_shepherds:, 0], self.x[self.n_shepherds:, 1], uv[0], uv[1], units='xy', scale=2, width=0.1, color='r', headlength=4.5, headwidth=3)
+
 
             # plot red circle for goal region
             circ = patches.Circle((0, 0), self.goal_region_radius, fill=False, edgecolor='r')
@@ -313,20 +330,15 @@ class ShepherdingEnv(gym.Env):
             self.fig = fig
             self.line1 = line1
             self.line2 = line2
-            self.Q = Q
 
         # update shepherd plot
-        self.line1.set_xdata(self.x[0:self.n_shepherds, 0])
-        self.line1.set_ydata(self.x[0:self.n_shepherds, 1])
+        uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
+        self.line1.set_offsets(self.x[:self.n_shepherds, 0:2])
+        self.line1.set_UVC(uv[0][:self.n_shepherds], uv[1][:self.n_shepherds])
 
         # update sheep plot
-        self.line2.set_xdata(self.x[self.n_shepherds:, 0])
-        self.line2.set_ydata(self.x[self.n_shepherds:, 1])
-
-        # update orientation
-        uv = [np.cos(self.x[:, 2]), np.sin(self.x[:, 2])]
-        self.Q.set_offsets(self.x[:, 0:2])
-        self.Q.set_UVC(uv[0], uv[1])
+        self.line2.set_offsets(self.x[self.n_shepherds:, 0:2])
+        self.line2.set_UVC(uv[0][self.n_shepherds:], uv[1][self.n_shepherds:])
 
         # draw updated figure
         self.fig.canvas.draw()
@@ -338,26 +350,3 @@ class ShepherdingEnv(gym.Env):
         """
         pass
 
-
-    # TODO function for loading from config file
-    # def params_from_cfg(self, args):
-    #
-    #     self.comm_radius = args.getfloat('comm_radius')
-    #     self.comm_radius2 = self.comm_radius * self.comm_radius
-    #     self.vr = 1 / self.comm_radius2 + np.log(self.comm_radius2)
-    #
-    #     self.n_sheep = args.getint('n_sheep')
-    #     self.n_shepherds = args.getint('n_shepherds')
-    #     self.n_agents = self.n_sheep + self.n_shepherds
-    #     self.r_max = self.r_max_init * np.sqrt(self.n_agents)
-    #     self.goal_offset = np.array([self.r_max * 5, self.r_max * 5])
-    #
-    #     self.action_space = spaces.Box(low=-self.max_accel, high=self.max_accel, shape=(self.n_shepherds, 2),
-    #                                    dtype=np.float32)
-    #
-    #     self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx_system),
-    #                                         dtype=np.float32)
-    #
-    #     self.v_max = args.getfloat('v_max')
-    #     self.v_bias = self.v_max
-    #     self.dt = args.getfloat('dt')
