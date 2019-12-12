@@ -1,4 +1,9 @@
 import gym
+env_dict = gym.envs.registration.registry.env_specs.copy()
+for env in env_dict:
+    print('Remove {} from registry'.format(env))
+    del gym.envs.registration.registry.env_specs[env]
+
 import gym_flock
 import configparser
 import numpy as np
@@ -8,7 +13,7 @@ env_name = "Shepherding-v0"
 env = gym.make(env_name)
 
 # Run N episodes
-N = 1000
+N = 10
 
 # for each episode
 for _ in range(N):
