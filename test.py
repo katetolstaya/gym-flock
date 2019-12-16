@@ -9,6 +9,7 @@ import configparser
 import numpy as np
 
 # Initialize the gym environment
+# env_name = "MappingRad-v0"
 env_name = "Shepherding-v0"
 env = gym.make(env_name)
 

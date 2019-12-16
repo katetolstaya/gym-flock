@@ -78,7 +78,7 @@ class MappingRadEnv(gym.Env):
         # TODO convert to discrete actions!
         # action will be the index of the neighbor in the graph (global index, not local)
         u = np.reshape(u, (-1, 1))
-        _, diff = self._compute_inter_agent_dist_sq()
+        diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[: 0:2])
         u = -1.0 * diff[np.reshape(range(self.n_robots), (-1, 1)), u, 0:2].reshape((self.n_robots, 2))
 
         assert u.shape == (self.n_robots, self.nu)
@@ -139,9 +139,11 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
         self.system_changed = True
 
-        adj_mat = self._compute_adj_mat(self_loops=False)
-        self.visited[self.n_robots:] = np.any(adj_mat[self.n_robots:, 0:self.n_robots], axis=1).flatten().reshape(
-            (-1, 1))
+        # adj_mat = self._compute_adj_mat(self_loops=False)
+        # self.visited[self.n_robots:] = np.any(adj_mat[self.n_robots:, 0:self.n_robots], axis=1).flatten().reshape(
+        #     (-1, 1))
+
+        self.visited.fill(0)
 
         obs, _, _ = self._get_obs_reward()
 
@@ -214,56 +216,56 @@ class MappingRadEnv(gym.Env):
         """
         pass
 
-    def _compute_observations(self):
-        """
-        Uses current system state to compute the observations of agents
-        The observations are:
-        - the identities of the agents, 1 if robot, 0 if target
-        - whether the target has been visited (1) or not (0)
-        The dimension is (Number robots + Number targets) x 2
-        :return: Observations of system state
-        """
-        return np.hstack((self.agent_type, self.visited))
-
-    def _compute_inter_agent_dist_sq(self):
-        """
-        Compute the relative positions & velocities between all pairs of agents, and the distance between agents squared
-        :return: relative position, distance squared
-        """
-        # TODO targets are static, don't need to recompute their distances every time, only once when initialized
-        if self.system_changed:
-            diff = self.x.reshape((self.n_agents, 1, self.nx)) - self.x.reshape(
-                (1, self.n_agents, self.nx))
-            self.r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1])
-            self.system_changed = False
-            self.diff = diff
-        return self.r2, self.diff
-
-    def _compute_adj_mat(self, weighted_graph=True, self_loops=False, normalize_by_neighbors=False):
-        """
-        Compute the adjacency matrix among all agents in the flock. The communication radius is fixed among all agents
-        to be self.comm_radius.
-        :param weighted_graph: should the graph be weighted by 1/distance to neighbors?
-        :param self_loops: should self loops be present in the graph? Determines the diagonal values in the adj mat
-        :param normalize_by_neighbors: should the adjacency matrix be normalized by the number of neighbors?
-        :return: The adjacency matrix (Number of shepherds + Number of sheep) x (Number of shepherds + Number of sheep)
-        """
-
-        r2, _ = self._compute_inter_agent_dist_sq()
-        if not self_loops:
-            np.fill_diagonal(r2, np.Inf)
-
-        adj_mat = (r2 < self.comm_radius2).astype(float)
-
-        if weighted_graph:
-            np.fill_diagonal(r2, np.Inf)
-            adj_mat = adj_mat / np.sqrt(r2)
-
-        if normalize_by_neighbors:
-            n_neighbors = np.reshape(np.sum(adj_mat, axis=1), (self.n_agents, 1))
-            n_neighbors[n_neighbors == 0] = 1
-            adj_mat = adj_mat / n_neighbors
-        return adj_mat
+    # def _compute_observations(self):
+    #     """
+    #     Uses current system state to compute the observations of agents
+    #     The observations are:
+    #     - the identities of the agents, 1 if robot, 0 if target
+    #     - whether the target has been visited (1) or not (0)
+    #     The dimension is (Number robots + Number targets) x 2
+    #     :return: Observations of system state
+    #     """
+    #     return np.hstack((self.agent_type, self.visited))
+    #
+    # def _compute_inter_agent_dist_sq(self):
+    #     """
+    #     Compute the relative positions & velocities between all pairs of agents, and the distance between agents squared
+    #     :return: relative position, distance squared
+    #     """
+    #     # TODO targets are static, don't need to recompute their distances every time, only once when initialized
+    #     if self.system_changed:
+    #         diff = self.x.reshape((self.n_agents, 1, self.nx)) - self.x.reshape(
+    #             (1, self.n_agents, self.nx))
+    #         self.r2 = np.multiply(diff[:, :, 0], diff[:, :, 0]) + np.multiply(diff[:, :, 1], diff[:, :, 1])
+    #         self.system_changed = False
+    #         self.diff = diff
+    #     return self.r2, self.diff
+    #
+    # def _compute_adj_mat(self, weighted_graph=True, self_loops=False, normalize_by_neighbors=False):
+    #     """
+    #     Compute the adjacency matrix among all agents in the flock. The communication radius is fixed among all agents
+    #     to be self.comm_radius.
+    #     :param weighted_graph: should the graph be weighted by 1/distance to neighbors?
+    #     :param self_loops: should self loops be present in the graph? Determines the diagonal values in the adj mat
+    #     :param normalize_by_neighbors: should the adjacency matrix be normalized by the number of neighbors?
+    #     :return: The adjacency matrix (Number of shepherds + Number of sheep) x (Number of shepherds + Number of sheep)
+    #     """
+    #
+    #     r2, _ = self._compute_inter_agent_dist_sq()
+    #     if not self_loops:
+    #         np.fill_diagonal(r2, np.Inf)
+    #
+    #     adj_mat = (r2 < self.comm_radius2).astype(float)
+    #
+    #     if weighted_graph:
+    #         np.fill_diagonal(r2, np.Inf)
+    #         adj_mat = adj_mat / np.sqrt(r2)
+    #
+    #     if normalize_by_neighbors:
+    #         n_neighbors = np.reshape(np.sum(adj_mat, axis=1), (self.n_agents, 1))
+    #         n_neighbors[n_neighbors == 0] = 1
+    #         adj_mat = adj_mat / n_neighbors
+    #     return adj_mat
 
     @staticmethod
     def _get_graph_edges(pos, rad, self_loops=False):
@@ -286,6 +288,15 @@ class MappingRadEnv(gym.Env):
         r[r > rad] = 0
         edges = np.nonzero(r)
         return edges, r[edges]
+
+    @staticmethod
+    def _get_pos_diff(sender_loc, receiver_loc):
+        n1 = sender_loc.shape[0]
+        m1 = sender_loc.shape[1]
+        n2 = receiver_loc.shape[0]
+        m2 = receiver_loc.shape[1]
+        diff = sender_loc.reshape((n1, 1, m1)) - receiver_loc.reshape((1, n2, m2))
+        return diff
 
     def params_from_cfg(self, args):
         """
