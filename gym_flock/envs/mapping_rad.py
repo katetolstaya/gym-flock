@@ -38,11 +38,13 @@ class MappingRadEnv(gym.Env):
         self.action_gain = 10.0  # controller gain
 
         # initialization parameters
-        # agents are initialized uniformly at random in square r_max x r_max
+        # agents are initialized uniformly at random in square of size r_max by r_max
         self.r_max_init = 2.0
 
         # graph parameters
         self.comm_radius = 5.0
+        self.motion_radius = 5.0
+        self.obs_radius = 2.0
 
         # call helper function to initialize arrays
         self.system_changed = True
@@ -95,16 +97,38 @@ class MappingRadEnv(gym.Env):
 
         self.system_changed = True
 
+        obs, reward, done = self._get_obs_reward()
+
+        return obs, reward, done, {}
+
+    def _get_obs_reward(self):
+
+        self.system_changed = True
+
+        # observation edges from targets to nearby robots
+        obs_edges, obs_dist = self._get_graph_edges2(self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2], self.obs_radius)
+        obs_edges[1] += self.n_robots  # target indices
+
+        # communication edges among robots
+        comm_edges, comm_dist = self._get_graph_edges(self.x[:self.n_robots, 0:2], self.comm_radius)
+
+        # motion edges between targets
+        motion_edges = self.motion_edges
+        motion_dist = self.motion_dist
+
         # update target visitation
-        adj_mat = self._compute_adj_mat(self_loops=False)
+        # adj_mat = self._compute_adj_mat(self_loops=False)
         self.visited[self.n_robots:] = np.logical_or(self.visited[self.n_robots:].flatten(),
-                                                     np.any(adj_mat[self.n_robots:, 0:self.n_robots],
-                                                            axis=1).flatten()).reshape((-1, 1))
+                                                     np.any(obs_edges, axis=1).flatten()).reshape((-1, 1))
 
         reward = np.sum(self.visited) / self.n_targets
         done = (reward == self.n_targets)
 
-        return (self._compute_observations(), adj_mat), reward, done, {}
+        senders = np.concatenate((obs_edges[0], comm_edges[0], motion_edges[0]))
+        receivers = np.concatenate((obs_edges[1], comm_edges[1], motion_edges[1]))
+        edges = np.concatenate((obs_dist, comm_dist, motion_dist))
+        nodes = np.hstack((self.agent_type, self.visited))
+        return (nodes, edges, senders, receivers), reward, done
 
     def reset(self):
         """
@@ -119,22 +143,21 @@ class MappingRadEnv(gym.Env):
         self.visited[self.n_robots:] = np.any(adj_mat[self.n_robots:, 0:self.n_robots], axis=1).flatten().reshape(
             (-1, 1))
 
-        return self._compute_observations(), self._compute_adj_mat()
+        obs, _, _ = self._get_obs_reward()
+
+        return obs
 
     def controller(self):
         """
         Greedy controller picks the nearest unvisited target
         :return: control action for each robot (global index of agent chosen)
         """
-        r2, _ = self._compute_inter_agent_dist_sq()
 
-        # never choose self or a visited target or another robot
-        np.fill_diagonal(r2, np.Inf)
-        r2[:self.n_robots, np.where(self.visited.flatten() == 1)] = np.Inf
-        r2[:self.n_robots, np.where(self.agent_type.flatten() == 1)] = np.Inf
+        _, r = self._get_graph_edges2(self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2], self.obs_radius)
+        r[:, np.where(self.visited[:self.n_robots] == 1)] = np.Inf
 
         # return the index of the closest agent
-        return np.argmin(r2[:self.n_robots, :], axis=1)
+        return np.argmin(r[:self.n_robots, :], axis=1) + self.n_robots
 
     def render(self, mode='human'):
         """
@@ -194,14 +217,13 @@ class MappingRadEnv(gym.Env):
     def _compute_observations(self):
         """
         Uses current system state to compute the observations of agents
-        The observations are the 2D positions & velocities (0 for targets) of all agents
-        And the identities of the agents, 1 if robot, 0 if target
-        And whether the target has been visited (1) or not (0)
-        And the agent ID, 0 to (number robots + number targets)
-        The dimension is (Number robots + Number targets) x 7
+        The observations are:
+        - the identities of the agents, 1 if robot, 0 if target
+        - whether the target has been visited (1) or not (0)
+        The dimension is (Number robots + Number targets) x 2
         :return: Observations of system state
         """
-        return np.hstack((self.x, self.agent_type, self.visited, self.agent_ids))
+        return np.hstack((self.agent_type, self.visited))
 
     def _compute_inter_agent_dist_sq(self):
         """
@@ -242,6 +264,28 @@ class MappingRadEnv(gym.Env):
             n_neighbors[n_neighbors == 0] = 1
             adj_mat = adj_mat / n_neighbors
         return adj_mat
+
+    @staticmethod
+    def _get_graph_edges(pos, rad, self_loops=False):
+        n = pos.shape[0]
+        m = pos.shape[1]
+        r = np.linalg.norm(pos.reshape((n, 1, m)) - pos.reshape((1, n, m)), axis=2)
+        r[r > rad] = 0
+        if not self_loops:
+            np.fill_diagonal(r, 0)
+        edges = np.nonzero(r)
+        return edges, r[edges]
+
+    @staticmethod
+    def _get_graph_edges2(sender_loc, receiver_loc, rad):
+        n1 = sender_loc.shape[0]
+        m1 = sender_loc.shape[1]
+        n2 = receiver_loc.shape[0]
+        m2 = receiver_loc.shape[1]
+        r = np.linalg.norm(sender_loc.reshape((n1, 1, m1)) - receiver_loc.reshape((1, n2, m2)), axis=2)
+        r[r > rad] = 0
+        edges = np.nonzero(r)
+        return edges, r[edges]
 
     def params_from_cfg(self, args):
         """
@@ -293,6 +337,10 @@ class MappingRadEnv(gym.Env):
         tx, ty = np.meshgrid(tempx, tempy)
         self.x[self.n_robots:, 0] = tx.flatten()
         self.x[self.n_robots:, 1] = ty.flatten()
+
+        self.motion_edges, self.motion_dist = self._get_graph_edges(self.x[self.n_robots:, 0:2], self.motion_radius)
+        self.motion_edges[1] += self.n_robots  # target indices
+        self.motion_edges[0] += self.n_robots  # target indices
 
         # problem's observation and action spaces
 
