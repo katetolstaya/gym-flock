@@ -104,7 +104,7 @@ class MappingRadEnv(gym.Env):
         senders - sender nodes for each edge
         receivers - receiver nodes for each edge
         reward - MDP reward at this step
-        done - is this the last step of the MDP?
+        done - is this the last step of the episode?
         """
         # observation edges from targets to nearby robots
         obs_edges, obs_dist = self._get_graph_edges(self.obs_radius,
