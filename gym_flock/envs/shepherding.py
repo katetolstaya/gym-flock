@@ -47,7 +47,7 @@ class ShepherdingEnv(gym.Env):
         self.comm_radius_2 = self.comm_radius * self.comm_radius
 
         # shepherd-sheep repulsion force is 4.5x, sheep-sheep repulsion is 1x  # TODO tune this
-        self.force_weights = 0.15 * np.hstack((1.5 * np.ones((1, self.n_shepherds, 1)), 0.25 * np.ones((1, self.n_sheep, 1))))
+        self.force_weights = 0.15 * np.hstack((3.0 * np.ones((1, self.n_shepherds, 1)), 0.5 * np.ones((1, self.n_sheep, 1))))
 
         # initialize state matrix
         self.x = np.zeros((self.n_agents, self.nx))
@@ -103,29 +103,16 @@ class ShepherdingEnv(gym.Env):
         Unycicle Model
         """
         # Feedback linearization
-        d = 0.2 # Offset from robot center
+        d = 0.3 # Offset from robot center
         v = u[:, 0]*np.cos(self.x[:, 2]) + u[:, 1]*np.sin(self.x[:, 2])
         w = u[:, 0]*(-np.sin(self.x[:, 2])/d) + u[:, 1]*(np.cos(self.x[:, 2])/d)
 
-        v[self.n_shepherds:] = v[self.n_shepherds:]/2 + 0.2 # Constant forward speed
+        v[self.n_shepherds:] = v[self.n_shepherds:]/2 + 0.5 # Sheep with constant forward speed
 
         # State Update (x, y, theta)
         self.x[:, 0] = self.x[:, 0] + v * np.cos(self.x[:, 2]) * self.dt
         self.x[:, 1] = self.x[:, 1] + v * np.sin(self.x[:, 2]) * self.dt        
         self.x[:, 2] = self.x[:, 2] + w * self.dt        
-
-        """
-        Unycicle Model
-        """
-        # Feedback linearization
-        d = 0.3 # Offset from robot center
-        v = u[:, 0] * np.cos(self.x[:, 2]) + u[:, 1] * np.sin(self.x[:, 2])
-        w = u[:, 0] * (-np.sin(self.x[:, 2]) / d) + u[:, 1] * (np.cos(self.x[:, 2]) / d)
-
-        # State Update (x, y, theta)
-        self.x[:, 0] = self.x[:, 0] + v * np.cos(self.x[:, 2]) * self.dt
-        self.x[:, 1] = self.x[:, 1] + v * np.sin(self.x[:, 2]) * self.dt
-        self.x[:, 2] = self.x[:, 2] + w * self.dt
 
         return (self._compute_observations(), self._compute_adj_mat()), self._instant_cost(), False, {}
 
@@ -183,9 +170,10 @@ class ShepherdingEnv(gym.Env):
         :return: sheep repulsion velocities
         """
         r2, diff = self._compute_inter_agent_dist_sq()
+        r2[r2 > 2] = np.Inf     # Distances above a certain threshold are set to Inf
         np.fill_diagonal(r2, np.Inf)
         potential_components = np.dstack((np.divide(diff[:, :, 0], r2), np.divide(diff[:, :, 1], r2)))
-        repulsion = np.sum(self.force_weights * potential_components, axis=1)
+        repulsion = np.sum(self.force_weights * potential_components, axis=1)        
         repulsion = repulsion.reshape((self.n_agents, self.nu))
         return repulsion[self.n_shepherds:, 0:2]
 
