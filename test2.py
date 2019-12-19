@@ -12,6 +12,8 @@ import numpy as np
 env_name = "MappingRad-v0"
 # env_name = "Shepherding-v0"
 env = gym.make(env_name)
+keys = ['nodes', 'edges', 'senders', 'receivers']
+env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
 N = 10
@@ -19,17 +21,17 @@ N = 10
 # for each episode
 for _ in range(N):
     # reset the environment
-    (nodes, edges, senders, receivers)= env.reset()
+    obs = env.reset()
     episode_reward = 0
 
     # simulate episode until done
     done = False
     while not done:
         # compute the baseline controller
-        action = env.env.controller()
+        action = env.env.env.controller()
 
         # simulate one step of the environment
-        (nodes, edges, senders, receivers), reward, done, _ = env.step(action)
+        obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
         # visualize the environment

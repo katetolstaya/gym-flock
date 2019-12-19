@@ -6,6 +6,8 @@ import configparser
 from os import path
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
+from collections import OrderedDict
+from gym.spaces import Box
 
 font = {'family': 'sans-serif',
         'weight': 'bold',
@@ -17,6 +19,7 @@ class MappingRadEnv(gym.Env):
     def __init__(self):
         """Initialize the mapping environment
         """
+        super(MappingRadEnv, self).__init__()
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
 
@@ -27,9 +30,10 @@ class MappingRadEnv(gym.Env):
         self.n_targets = 900
         self.n_targets_side = int(np.sqrt(self.n_targets))
         self.n_robots = 25
+        self.max_actions = 10
 
         # dynamics parameters
-        self.dt = 0.1
+        self.dt = 1.0
         self.ddt = self.dt / 10.0
         self.v_max = 5.0  # max velocity
         self.a_max = 1  # max acceleration
@@ -57,6 +61,8 @@ class MappingRadEnv(gym.Env):
         self.np_random = None
         self.seed()
 
+
+
     def seed(self, seed=None):
         """ Seed the numpy random number generator
         :param seed: random seed
@@ -80,6 +86,8 @@ class MappingRadEnv(gym.Env):
         assert u.shape == (self.n_robots, self.nu)
         u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
         u = u * self.action_gain
+
+        # TODO may want to clip positions here
 
         for _ in range(10):
             # position
@@ -126,9 +134,23 @@ class MappingRadEnv(gym.Env):
         # computation graph is symmetric for now. target <-> robot undirected edges
         senders = np.concatenate((obs_edges[0], obs_edges[1], comm_edges[0], motion_edges[0]))
         receivers = np.concatenate((obs_edges[1], obs_edges[0], comm_edges[1], motion_edges[1]))
-        edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist))
-        nodes = np.hstack((self.agent_type, self.visited))
-        return (nodes, edges, senders, receivers), reward, done
+        edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
+
+        # -1 indicates unused edges
+        self.senders.fill(-1)
+        self.receivers.fill(-1)
+
+        # TODO assert number of edges is below the limit
+        self.senders[:len(senders)] = senders
+        self.receivers[:len(receivers)] = receivers
+
+        self.edges[:edges.shape[0], :edges.shape[1]] = edges
+        self.nodes[:, 0] = self.agent_type.flatten()
+        self.nodes[:, 1] = self.visited.flatten()
+
+        obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers}
+
+        return obs, reward, done
 
     def reset(self):
         """
@@ -258,7 +280,13 @@ class MappingRadEnv(gym.Env):
         """
         # number of agents
         self.n_agents = self.n_targets + self.n_robots
+        self.max_edges = self.n_agents * 5
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
+
+        self.edges = np.zeros((self.max_edges, 1), dtype=np.float32)
+        self.nodes = np.zeros((self.n_agents, 2), dtype=np.float32)
+        self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
+        self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
         # initial condition
         self.r_max = self.r_max_init * np.sqrt(self.n_agents)
@@ -289,8 +317,17 @@ class MappingRadEnv(gym.Env):
         # problem's observation and action spaces
 
         # each robot picks which neighbor to move to
+        # self.action_space = spaces.MultiDiscrete([self.max_actions] * self.n_robots)
         self.action_space = spaces.MultiDiscrete([self.n_agents] * self.n_robots)
-
         # see _compute_observations(self) for description of observation space
-        self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx + 3),
-                                            dtype=np.float32)
+        # self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx + 3),
+        #                                     dtype=np.float32)
+
+        self.observation_space = gym.spaces.Dict(
+            [
+                ("nodes", Box(shape=(self.n_agents, 2), low=-np.Inf, high=np.Inf, dtype=np.float32)),
+                ("edges", Box(shape=(self.max_edges, 1), low=-np.Inf, high=np.Inf, dtype=np.float32)),
+                ("senders", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.int)),
+                ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.int)),
+            ]
+        )
