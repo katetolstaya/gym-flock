@@ -61,8 +61,6 @@ class MappingRadEnv(gym.Env):
         self.np_random = None
         self.seed()
 
-
-
     def seed(self, seed=None):
         """ Seed the numpy random number generator
         :param seed: random seed
@@ -119,6 +117,13 @@ class MappingRadEnv(gym.Env):
                                                     self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
         obs_edges = (obs_edges[0] + self.n_robots, obs_edges[1])
 
+        # movement edges
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions - 1, self.x[:self.n_robots, 0:2],
+                                                self.x[self.n_robots:, 0:2])
+        mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
+
+        # print(obs_edges)
+
         # communication edges among robots
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
@@ -132,8 +137,10 @@ class MappingRadEnv(gym.Env):
         done = (reward == 0.0)
 
         # computation graph is symmetric for now. target <-> robot undirected edges
-        senders = np.concatenate((obs_edges[0], obs_edges[1], comm_edges[0], motion_edges[0]))
-        receivers = np.concatenate((obs_edges[1], obs_edges[0], comm_edges[1], motion_edges[1]))
+
+        # we want to fix the number of edges into the robot from targets.
+        senders = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[0], motion_edges[0]))
+        receivers = np.concatenate((obs_edges[0], mov_edges[0], comm_edges[1], motion_edges[1]))
         edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
 
         # -1 indicates unused edges
@@ -254,6 +261,17 @@ class MappingRadEnv(gym.Env):
             diff = sender_loc.reshape((n, 1, m)) - sender_loc.reshape((1, n, m))
         return diff
 
+    @staticmethod
+    def _get_k_edges(k, pos1, pos2=None, self_loops=False):
+        diff = MappingRadEnv._get_pos_diff(pos1, pos2)
+        r = np.linalg.norm(diff, axis=2)
+        if not self_loops and pos2 is None:
+            np.fill_diagonal(r, np.Inf)
+        threshold = np.reshape(np.partition(r, k, axis=1)[:, k], (-1, 1))
+        r[r > threshold] = 0
+        edges = np.nonzero(r)
+        return edges, r[edges]
+
     def params_from_cfg(self, args):
         """
         Load experiment parameters from a configparser object
@@ -282,6 +300,7 @@ class MappingRadEnv(gym.Env):
         self.n_agents = self.n_targets + self.n_robots
         self.max_edges = self.n_agents * 5
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
+        self.n_actions = 4
 
         self.edges = np.zeros((self.max_edges, 1), dtype=np.float32)
         self.nodes = np.zeros((self.n_agents, 2), dtype=np.float32)
@@ -318,7 +337,7 @@ class MappingRadEnv(gym.Env):
 
         # each robot picks which neighbor to move to
         # self.action_space = spaces.MultiDiscrete([self.max_actions] * self.n_robots)
-        self.action_space = spaces.MultiDiscrete([self.n_agents] * self.n_robots)
+        self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
         # see _compute_observations(self) for description of observation space
         # self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx + 3),
         #                                     dtype=np.float32)
