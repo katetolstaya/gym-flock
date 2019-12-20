@@ -33,7 +33,7 @@ class MappingRadEnv(gym.Env):
         self.max_actions = 10
 
         # dynamics parameters
-        self.dt = 1.0
+        self.dt = 0.1
         self.ddt = self.dt / 10.0
         self.v_max = 5.0  # max velocity
         self.a_max = 1  # max acceleration
@@ -80,6 +80,7 @@ class MappingRadEnv(gym.Env):
         
         # action will be the index of the neighbor in the graph (global index, not local)
         u = np.reshape(u, (-1, 1))
+        u = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[np.reshape(range(self.n_robots), (-1, 1)), u]
         diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
         u = -1.0 * diff[np.reshape(range(self.n_robots), (-1, 1)), u, 0:2].reshape((self.n_robots, 2))
 
@@ -123,6 +124,7 @@ class MappingRadEnv(gym.Env):
         mov_edges, mov_dist = self._get_k_edges(self.n_actions - 1, self.x[:self.n_robots, 0:2],
                                                 self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
+        self.mov_edges = mov_edges
 
         # print(obs_edges)
 
@@ -174,17 +176,20 @@ class MappingRadEnv(gym.Env):
         obs, _, _ = self._get_obs_reward()
         return obs
 
-    def controller(self):
-        """
-        Greedy controller picks the nearest unvisited target
-        :return: control action for each robot (global index of agent chosen)
-        """
-        r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                           - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-        r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
+    # def controller(self):
+    #     """
+    #     Greedy controller picks the nearest unvisited target
+    #     :return: control action for each robot (global index of agent chosen)
+    #     """
+    #     r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
+    #                        - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
+    #     r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
+    #
+    #     # return the index of the closest target
+    #     return np.argmin(r, axis=1) + self.n_robots
 
-        # return the index of the closest target
-        return np.argmin(r, axis=1) + self.n_robots
+    def controller(self):
+        return np.zeros((self.n_robots, 1), dtype=np.int32)
 
     def render(self, mode='human'):
         """
