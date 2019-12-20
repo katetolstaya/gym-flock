@@ -76,6 +76,8 @@ class MappingRadEnv(gym.Env):
         :return: described above
         """
 
+        # TODO convert from local index in the obs_edges
+        
         # action will be the index of the neighbor in the graph (global index, not local)
         u = np.reshape(u, (-1, 1))
         diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
