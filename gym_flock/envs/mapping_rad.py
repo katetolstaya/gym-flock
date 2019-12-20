@@ -9,12 +9,24 @@ from matplotlib.pyplot import gca
 from collections import OrderedDict
 from gym.spaces import Box
 
+
+try:
+    import tensorflow as tf
+except ImportError:
+    tf = None
+
+
 font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
+N_TARGETS = 100
+N_ROBOTS = 10
+N_ACTIONS = 4
+MAX_EDGES = 10
 
 class MappingRadEnv(gym.Env):
+
 
     def __init__(self):
         """Initialize the mapping environment
@@ -27,10 +39,9 @@ class MappingRadEnv(gym.Env):
         self.nu = 2
 
         # number of robots and targets
-        self.n_targets = 900
+        self.n_targets = N_TARGETS
         self.n_targets_side = int(np.sqrt(self.n_targets))
-        self.n_robots = 25
-        self.max_actions = 10
+        self.n_robots = N_ROBOTS
 
         # dynamics parameters
         self.dt = 0.1
@@ -125,8 +136,6 @@ class MappingRadEnv(gym.Env):
                                                 self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
-
-        # print(obs_edges)
 
         # communication edges among robots
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
@@ -305,7 +314,7 @@ class MappingRadEnv(gym.Env):
         """
         # number of agents
         self.n_agents = self.n_targets + self.n_robots
-        self.max_edges = self.n_agents * 5
+        self.max_edges = self.n_agents * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
         self.n_actions = 4
 
@@ -357,3 +366,50 @@ class MappingRadEnv(gym.Env):
                 ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.int)),
             ]
         )
+
+    @staticmethod
+    def unpack_obs(obs):
+        assert tf is not None, "Function unpack_obs_graph_coord_tf() is not available if Tensorflow is not imported."
+        n_nodes = N_ROBOTS + N_TARGETS
+        max_edges = MAX_EDGES
+        max_n_edges = n_nodes * max_edges
+        dim_edges = 1
+        dim_nodes = 2
+
+        # unpack node and edge data from flattened array
+        shapes = ((n_nodes, dim_nodes), (max_n_edges, dim_edges), (max_n_edges, 1), (max_n_edges, 1))
+        sizes = [np.prod(s) for s in shapes]
+        tensors = tf.split(obs, sizes, axis=1)
+        tensors = [tf.reshape(t, (-1,) + s) for (t, s) in zip(tensors, shapes)]
+        nodes, edges, senders, receivers = tensors
+        batch_size = tf.shape(nodes)[0]
+
+        # TODO mask nodes too - assumes num. of landmarks is fixed (BAD)
+        n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
+        nodes = tf.reshape(nodes, (-1, dim_nodes))
+
+        # compute edge mask and number of edges per graph
+        mask = tf.reshape(tf.not_equal(senders, -1), (batch_size, -1))  # padded edges have sender = -1
+        n_edge = tf.reduce_sum(tf.cast(mask, tf.float32), axis=1)
+        mask = tf.reshape(mask, (-1,))
+
+        # flatten edge data
+        edges = tf.reshape(edges, (-1, dim_edges))
+        senders = tf.reshape(senders, (-1,))
+        receivers = tf.reshape(receivers, (-1,))
+
+        # mask edges
+        edges = tf.boolean_mask(edges, mask, axis=0)
+        senders = tf.boolean_mask(senders, mask)
+        receivers = tf.boolean_mask(receivers, mask)
+
+        # cast all indices to int
+        n_node = tf.cast(n_node, tf.int32)
+        n_edge = tf.cast(n_edge, tf.int32)
+        senders = tf.cast(senders, tf.int32)
+        receivers = tf.cast(receivers, tf.int32)
+
+        # TODO this is a hack - want global outputs, but have no global inputs
+        globs = tf.fill((batch_size, 1), 0.0)
+
+        return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
