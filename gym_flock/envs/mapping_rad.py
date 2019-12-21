@@ -21,7 +21,7 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 N_TARGETS = 100
-N_ROBOTS = 5
+N_ROBOTS = 2
 N_ACTIONS = 4
 MAX_EDGES = 5
 
