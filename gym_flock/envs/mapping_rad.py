@@ -45,7 +45,7 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 0.1
+        self.dt = 0.5
         self.ddt = self.dt / 10.0
         self.v_max = 5.0  # max velocity
         self.a_max = 1  # max acceleration
@@ -56,9 +56,9 @@ class MappingRadEnv(gym.Env):
         self.r_max_init = 2.0
 
         # graph parameters
-        self.comm_radius = 5.0
-        self.motion_radius = 5.0
-        self.obs_radius = 5.0
+        self.comm_radius = 3.0
+        self.motion_radius = 3.0
+        self.obs_radius = 3.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
