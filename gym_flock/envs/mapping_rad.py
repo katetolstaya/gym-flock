@@ -23,7 +23,7 @@ font = {'family': 'sans-serif',
 N_TARGETS = 100
 N_ROBOTS = 5
 N_ACTIONS = 4
-MAX_EDGES = 10
+MAX_EDGES = 5
 
 class MappingRadEnv(gym.Env):
 
@@ -158,6 +158,7 @@ class MappingRadEnv(gym.Env):
         senders = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[0], motion_edges[0]))
         receivers = np.concatenate((obs_edges[0], mov_edges[0], comm_edges[1], motion_edges[1]))
         edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
+
 
         # -1 indicates unused edges
         self.senders.fill(-1)
