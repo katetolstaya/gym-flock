@@ -21,7 +21,7 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 N_TARGETS = 100
-N_ROBOTS = 10
+N_ROBOTS = 5
 N_ACTIONS = 4
 MAX_EDGES = 10
 
@@ -169,7 +169,7 @@ class MappingRadEnv(gym.Env):
 
         self.edges[:edges.shape[0], :edges.shape[1]] = edges
         self.nodes[:, 0] = self.agent_type.flatten()
-        self.nodes[:, 1] = self.visited.flatten()
+        self.nodes[:, 1] = np.logical_not(self.visited).flatten()
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers}
 
