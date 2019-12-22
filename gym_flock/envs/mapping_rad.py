@@ -56,9 +56,9 @@ class MappingRadEnv(gym.Env):
         self.r_max_init = 2.0
 
         # graph parameters
-        self.comm_radius = 3.0
-        self.motion_radius = 3.0
-        self.obs_radius = 3.0
+        self.comm_radius = 2.5
+        self.motion_radius = 2.5
+        self.obs_radius = 2.5
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -158,8 +158,8 @@ class MappingRadEnv(gym.Env):
         senders = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[0], motion_edges[0]))
         receivers = np.concatenate((obs_edges[0], mov_edges[0], comm_edges[1], motion_edges[1]))
 
-        edges = np.ones((len(senders), 1))
-        # edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
+        # edges = np.ones((len(senders), 1))
+        edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
 
 
         # -1 indicates unused edges
