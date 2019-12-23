@@ -160,6 +160,7 @@ class MappingRadEnv(gym.Env):
 
         # edges = np.ones((len(senders), 1))
         edges = np.concatenate((obs_dist, obs_dist, comm_dist, motion_dist)).reshape((-1, 1))
+        edges = 1 / (edges + 0.1)
 
 
         # -1 indicates unused edges
