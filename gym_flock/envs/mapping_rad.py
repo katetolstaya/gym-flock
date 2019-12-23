@@ -149,7 +149,8 @@ class MappingRadEnv(gym.Env):
 
         # update target visitation
         self.visited[obs_edges[0]] = 1
-        reward = np.sum(self.visited) / self.n_targets - 1.0
+        # reward = np.sum(self.visited) / self.n_targets - 1.0
+        reward = np.sum(self.visited)
         done = (reward == 0.0)
 
         # computation graph is symmetric for now. target <-> robot undirected edges
@@ -173,7 +174,7 @@ class MappingRadEnv(gym.Env):
 
         self.edges[:edges.shape[0], :edges.shape[1]] = edges
         self.nodes[:, 0] = self.agent_type.flatten()
-        self.nodes[:, 1] = np.logical_not(self.visited).flatten()
+        self.nodes[:, 1] = self.visited.flatten() #np.logical_not(self.visited).flatten()
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers}
 

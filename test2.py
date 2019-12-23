@@ -31,7 +31,7 @@ for _ in range(N):
     done = False
     while not done:
         # compute the baseline controller
-        # action = env.env.env.controller()
+        action = env.env.env.controller()
         action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
