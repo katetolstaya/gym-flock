@@ -303,7 +303,7 @@ class ShepherdingEnv(gym.Env):
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
-            plt.title('GNN Controller')
+            # plt.title('GNN Controller')
 
             # store plot state
             self.fig = fig

@@ -45,9 +45,9 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 0.1
+        self.dt = 0.5
         self.ddt = self.dt / 10.0
-        self.v_max = 5.0  # max velocity
+        self.v_max = 2.0  # max velocity
         self.a_max = 1  # max acceleration
         self.action_gain = 10.0  # controller gain
 
@@ -232,7 +232,7 @@ class MappingRadEnv(gym.Env):
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
-            plt.title('GNN Controller')
+            # plt.title('GNN Controller')
 
             # store plot state
             self.fig = fig

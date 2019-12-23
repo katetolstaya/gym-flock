@@ -7,6 +7,7 @@ for env in env_dict:
 import gym_flock
 import configparser
 import numpy as np
+import time
 
 # Initialize the gym environment
 env_name = "MappingRad-v0"
@@ -30,6 +31,7 @@ for _ in range(N):
     done = False
     while not done:
         # compute the baseline controller
+        # action = env.env.env.controller()
         action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
@@ -38,5 +40,7 @@ for _ in range(N):
 
         # visualize the environment
         env.render()
+        # time.sleep(0.5)
+
     print(episode_reward)
 env.close()
