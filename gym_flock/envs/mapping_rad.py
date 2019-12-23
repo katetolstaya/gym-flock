@@ -58,7 +58,7 @@ class MappingRadEnv(gym.Env):
         # graph parameters
         self.comm_radius = 5.0
         self.motion_radius = 5.0
-        self.obs_radius = 2.0
+        self.obs_radius = 5.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -191,18 +191,20 @@ class MappingRadEnv(gym.Env):
         obs, _, _ = self._get_obs_reward()
         return obs
 
-    def controller(self):
+    def controller(self, random=False):
         """
         Greedy controller picks the nearest unvisited target
         :return: control action for each robot (global index of agent chosen)
         """
-        r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                           - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-        r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
+        if not random:
+            r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
+                               - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
+            r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
 
-        # return the index of the closest target
-        return np.argmin(r, axis=1) + self.n_robots
-
+            # return the index of the closest target
+            return np.argmin(r, axis=1) + self.n_robots
+        else:
+            return np.random.choice(4, size=(self.n_robots,1))
     # def controller(self):
     #     return np.zeros((self.n_robots, 1), dtype=np.int32)
 
