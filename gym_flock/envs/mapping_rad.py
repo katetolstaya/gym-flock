@@ -92,11 +92,12 @@ class MappingRadEnv(gym.Env):
         
         # action will be the index of the neighbor in the graph (global index, not local)
         u = np.reshape(u, (-1, 1))
+        robots_index = np.reshape(range(self.n_robots), (-1, 1))
 
         if self.local:
-            u = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[np.reshape(range(self.n_robots), (-1, 1)), u]
+            u = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u]
         diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
-        u = -1.0 * diff[np.reshape(range(self.n_robots), (-1, 1)), u, 0:2].reshape((self.n_robots, 2))
+        u = -1.0 * diff[robots_index, u, 0:2].reshape((self.n_robots, 2))
 
         assert u.shape == (self.n_robots, self.nu)
         u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
@@ -148,10 +149,14 @@ class MappingRadEnv(gym.Env):
         motion_dist = self.motion_dist
 
         # update target visitation
+        old_sum = np.sum(self.visited)
         self.visited[obs_edges[0]] = 1
-        reward = np.sum(self.visited) / self.n_targets - 1.0
+        # reward = np.sum(self.visited) / self.n_targets - 1.0
+        reward = np.sum(self.visited) - old_sum
         # reward = np.sum(self.visited) # - 1.0
-        done = (reward == 0.0)
+
+        # done = (reward == 0.0)
+        done = np.sum(self.visited) == self.n_targets
 
         # computation graph is symmetric for now. target <-> robot undirected edges
 
