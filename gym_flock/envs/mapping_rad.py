@@ -220,8 +220,11 @@ class MappingRadEnv(gym.Env):
         Render the environment with agents as points in 2D space. The robots are in green, the targets in red.
         When a target has been visited, it becomes a blue dot. The plot objects are created on the first render() call and persist between
         calls of this function.
-        :param mode: required by gym
+        :param mode: 'human' mode renders the environment, and nothing happens otherwise
         """
+        if mode is not 'human':
+            return
+
         if self.fig is None:
             # initialize plot parameters
             plt.ion()
