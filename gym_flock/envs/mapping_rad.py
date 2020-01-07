@@ -357,12 +357,16 @@ class MappingRadEnv(gym.Env):
         self.r2 = np.zeros((self.n_agents, self.n_agents))
         # self.system_changed = True
 
-        # initialize fixed grid of targets
-        tempx = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
-        tempy = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
-        tx, ty = np.meshgrid(tempx, tempy)
-        self.x[self.n_robots:, 0] = tx.flatten()
-        self.x[self.n_robots:, 1] = ty.flatten()
+        # # initialize fixed grid of targets
+        # tempx = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
+        # tempy = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
+        #
+        # tx, ty = np.meshgrid(tempx, tempy)
+        # self.x[self.n_robots:, 0] = tx.flatten()
+        # self.x[self.n_robots:, 1] = ty.flatten()
+        #
+
+        self.x[self.n_robots:,0:2] = np.random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2])
         self.motion_edges = (self.motion_edges[0], self.motion_edges[1] + self.n_robots)
