@@ -149,10 +149,10 @@ class MappingRadEnv(gym.Env):
         motion_dist = self.motion_dist
 
         # update target visitation
-        old_sum = np.sum(self.visited)
+        # old_sum = np.sum(self.visited)
         self.visited[obs_edges[0]] = 1
         # reward = np.sum(self.visited) / self.n_targets - 1.0
-        reward = np.sum(self.visited) - old_sum
+        reward = np.sum(self.visited) #- old_sum
         # reward = np.sum(self.visited) # - 1.0
 
         # done = (reward == 0.0)
