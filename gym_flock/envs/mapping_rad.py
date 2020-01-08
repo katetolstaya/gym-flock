@@ -197,7 +197,7 @@ class MappingRadEnv(gym.Env):
 
         # self.visited.fill(0)
         self.visited = np.ones((self.n_agents, 1))
-        self.visited[np.random.choice(self.n_targets, size=(10,))] = 0
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))] = 0
         obs, _, _ = self._get_obs_reward()
         return obs
 
