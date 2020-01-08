@@ -24,6 +24,7 @@ N_TARGETS = 100
 N_ROBOTS = 1
 N_ACTIONS = 4
 MAX_EDGES = 8
+N_ACTIVE_TARGETS = 15
 
 class MappingRadEnv(gym.Env):
 
@@ -149,10 +150,10 @@ class MappingRadEnv(gym.Env):
         motion_dist = self.motion_dist
 
         # update target visitation
-        # old_sum = np.sum(self.visited)
+        old_sum = np.sum(self.visited)
         self.visited[obs_edges[0]] = 1
         # reward = np.sum(self.visited) / self.n_targets - 1.0
-        reward = np.sum(self.visited) #- old_sum
+        reward = np.sum(self.visited) - old_sum
         # reward = np.sum(self.visited) # - 1.0
 
         # done = (reward == 0.0)
@@ -194,7 +195,9 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
         # self.system_changed = True
 
-        self.visited.fill(0)
+        # self.visited.fill(0)
+        self.visited = np.ones((self.n_agents, 1))
+        self.visited[np.random.choice(self.n_targets, size=(10,))] = 0
         obs, _, _ = self._get_obs_reward()
         return obs
 
@@ -349,7 +352,10 @@ class MappingRadEnv(gym.Env):
 
         # initialize state matrices
         self.x = np.zeros((self.n_agents, self.nx))
-        self.visited = np.zeros((self.n_agents, 1))
+        # self.visited = np.zeros((self.n_agents, 1))
+        self.visited = np.ones((self.n_agents, 1))
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))] = 0
+
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
         # caching distance computation
@@ -357,16 +363,15 @@ class MappingRadEnv(gym.Env):
         self.r2 = np.zeros((self.n_agents, self.n_agents))
         # self.system_changed = True
 
-        # # initialize fixed grid of targets
-        # tempx = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
-        # tempy = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
-        #
-        # tx, ty = np.meshgrid(tempx, tempy)
-        # self.x[self.n_robots:, 0] = tx.flatten()
-        # self.x[self.n_robots:, 1] = ty.flatten()
-        #
+        # initialize fixed grid of targets
+        tempx = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
+        tempy = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
 
-        self.x[self.n_robots:,0:2] = np.random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
+        tx, ty = np.meshgrid(tempx, tempy)
+        self.x[self.n_robots:, 0] = tx.flatten()
+        self.x[self.n_robots:, 1] = ty.flatten()
+
+        # self.x[self.n_robots:,0:2] = np.random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2])
         self.motion_edges = (self.motion_edges[0], self.motion_edges[1] + self.n_robots)
