@@ -20,11 +20,11 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 36
+N_TARGETS = 16
 N_ROBOTS = 1
 N_ACTIONS = 4
 MAX_EDGES = 8
-N_ACTIVE_TARGETS = 10
+N_ACTIVE_TARGETS = 5
 
 class MappingRadEnv(gym.Env):
 
