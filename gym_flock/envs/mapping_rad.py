@@ -46,7 +46,7 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 0.5
+        self.dt = 0.2
         self.ddt = self.dt / 10.0
         self.v_max = 2.0  # max velocity
         self.a_max = 1  # max acceleration
