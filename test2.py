@@ -10,7 +10,7 @@ env_name = "MappingRad-v0"
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
-env.env.env.local = False
+# env.env.env.local = False
 
 
 # Run N episodes
@@ -27,7 +27,7 @@ for _ in range(N):
     while not done:
         # compute the baseline controller
         action = env.env.env.controller()
-        # action = env.env.env.controller(random=True)
+        action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)

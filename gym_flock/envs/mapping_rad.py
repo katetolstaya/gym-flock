@@ -24,7 +24,7 @@ N_TARGETS = 16
 N_ROBOTS = 1
 N_ACTIONS = 4
 MAX_EDGES = 5
-N_ACTIVE_TARGETS = 5
+N_ACTIVE_TARGETS = 1
 
 class MappingRadEnv(gym.Env):
 
@@ -59,7 +59,7 @@ class MappingRadEnv(gym.Env):
         # graph parameters
         self.comm_radius = 5.0
         self.motion_radius = 5.0
-        self.obs_radius = 5.0
+        self.obs_radius = 1.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -132,7 +132,7 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
         # observation edges from targets to nearby robots
-        obs_edges, obs_dist = self._get_graph_edges(self.obs_radius,
+        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius,
                                                     self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
         obs_edges = (obs_edges[0] + self.n_robots, obs_edges[1])
 
@@ -149,9 +149,14 @@ class MappingRadEnv(gym.Env):
         motion_edges = self.motion_edges
         motion_dist = self.motion_dist
 
+        # observation edges from targets to nearby robots
+        sensor_edges, sensor_dist = self._get_graph_edges(self.obs_radius,
+                                                    self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
+        sensor_edges = (sensor_edges[0] + self.n_robots, sensor_edges[1])
+
         # update target visitation
         # old_sum = np.sum(self.visited)
-        self.visited[obs_edges[0]] = 1
+        self.visited[sensor_edges[0]] = 1
         # reward = np.sum(self.visited) / self.n_targets - 1.0
         reward = np.sum(self.visited) - self.n_targets  #- old_sum
         # reward = np.sum(self.visited) # - 1.0
@@ -195,9 +200,15 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
         # self.system_changed = True
 
-        # self.visited.fill(0)
-        self.visited = np.ones((self.n_agents, 1))
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))] = 0
+        # # self.visited.fill(0)
+        # self.visited = np.ones((self.n_agents, 1))
+        #
+        # self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
+
+        self.visited[self.n_robots:] = 1
+        # self.visited = np.ones((self.n_agents, 1))
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
+
         obs, _, _ = self._get_obs_reward()
         return obs
 
@@ -352,9 +363,10 @@ class MappingRadEnv(gym.Env):
 
         # initialize state matrices
         self.x = np.zeros((self.n_agents, self.nx))
-        # self.visited = np.zeros((self.n_agents, 1))
-        self.visited = np.ones((self.n_agents, 1))
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))] = 0
+        self.visited = np.zeros((self.n_agents, 1))
+        self.visited[self.n_robots:] = 1
+        # self.visited = np.ones((self.n_agents, 1))
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
