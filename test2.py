@@ -15,6 +15,7 @@ env.env.env.local = False
 
 # Run N episodes
 N = 10
+total_reward = 0
 
 # for each episode
 for _ in range(N):
@@ -35,7 +36,10 @@ for _ in range(N):
 
         # visualize the environment
         env.render()
-        # time.sleep(0.5)
+        time.sleep(0.5)
 
     print(episode_reward)
+    total_reward += episode_reward
+
+print(total_reward/N)
 env.close()

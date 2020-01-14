@@ -46,11 +46,11 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 0.5
+        self.dt = 1.0
         self.ddt = self.dt / 10.0
-        self.v_max = 2.0  # max velocity
-        self.a_max = 1  # max acceleration
-        self.action_gain = 10.0  # controller gain
+        self.v_max = 1.0  # max velocity
+        self.a_max = 5.0  # max acceleration
+        self.action_gain = 1.0  # controller gain
 
         # initialization parameters
         # agents are initialized uniformly at random in square of size r_max by r_max
@@ -82,7 +82,7 @@ class MappingRadEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, u, local=True):
+    def step(self, u_ind, local=True):
         """ Simulate a single step of the environment dynamics
         The output is observations, cost, done_flag, options
         :param u: control input for robots
@@ -92,21 +92,29 @@ class MappingRadEnv(gym.Env):
         # TODO convert from local index in the obs_edges
         
         # action will be the index of the neighbor in the graph (global index, not local)
-        u = np.reshape(u, (-1, 1))
+        u_ind = np.reshape(u_ind, (-1, 1))
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
 
         if self.local:
-            u = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u]
-        diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
-        u = -1.0 * diff[robots_index, u, 0:2].reshape((self.n_robots, 2))
+            u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
-        assert u.shape == (self.n_robots, self.nu)
-        u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
-        u = u * self.action_gain
+        # diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
+        # u = -1.0 * diff[robots_index, u, 0:2].reshape((self.n_robots, 2))
+        #
+        # assert u.shape == (self.n_robots, self.nu)
+        # u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
+        # u = u * self.action_gain
 
         # TODO may want to clip positions here
 
         for _ in range(10):
+            diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
+            u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
+
+            assert u.shape == (self.n_robots, self.nu)
+            u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
+            u = u * self.action_gain
+
             # position
             self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + self.x[:self.n_robots, 2:4] * self.ddt \
                                           + u[:, 0:2] * self.ddt * self.ddt * 0.5
