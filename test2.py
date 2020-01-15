@@ -14,7 +14,7 @@ env.env.env.local = False
 
 
 # Run N episodes
-N = 10
+N = 50
 total_reward = 0
 
 # for each episode
