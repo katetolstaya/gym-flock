@@ -140,7 +140,7 @@ class MappingRadEnv(gym.Env):
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
 
-        assert len(mov_edges[0]) == N_ACTIONS
+        assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
 
         # communication edges among robots
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
@@ -300,8 +300,15 @@ class MappingRadEnv(gym.Env):
         r = np.linalg.norm(diff, axis=2)
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
-        threshold = np.reshape(np.partition(r, k-1, axis=1)[:, k-1], (-1, 1))
-        r[r > threshold] = 0
+        # threshold = np.reshape(np.partition(r, k-1, axis=1)[:, k-1], (-1, 1))
+
+        idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
+
+        temp = np.zeros(np.shape(r))
+        temp[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
+        r = r * temp
+
+        # r[r > threshold] = 0
         edges = np.nonzero(r)
         return edges, r[edges]
 
