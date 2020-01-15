@@ -24,7 +24,7 @@ N_TARGETS = 16
 N_ROBOTS = 1
 N_ACTIONS = 5
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 1
+N_ACTIVE_TARGETS = 5
 
 
 class MappingRadEnv(gym.Env):
@@ -46,7 +46,7 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 0.5
+        self.dt = 1.0
         self.ddt = self.dt / 10.0
         self.v_max = 1.0  # max velocity
         self.a_max = 3.0  # max acceleration
