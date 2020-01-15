@@ -34,7 +34,6 @@ class MappingRadEnv(gym.Env):
         super(MappingRadEnv, self).__init__()
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
-        self.local = True
         self.velocity_control = True
 
         # agent dynamics are controlled with 2D acceleration
@@ -82,19 +81,17 @@ class MappingRadEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, u_ind, local=True):
+    def step(self, u_ind):
         """ Simulate a single step of the environment dynamics
         The output is observations, cost, done_flag, options
-        :param u: control input for robots
+        :param u_ind: control input for robots
         :return: described above
         """
 
         # action will be the index of the neighbor in the graph
         u_ind = np.reshape(u_ind, (-1, 1))
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
-
-        if self.local:
-            u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
+        u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
         for _ in range(10):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
@@ -139,7 +136,6 @@ class MappingRadEnv(gym.Env):
                                                 self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
-
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
 
         # communication edges among robots
@@ -203,16 +199,19 @@ class MappingRadEnv(gym.Env):
         :return: control action for each robot (global index of agent chosen)
         """
         if not random:
+            # get closest unvisited
             r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
                                - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
             r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
 
-            # return the index of the closest target
-            return np.argmin(r, axis=1) + self.n_robots
+            # get the closest neighbor to the unvisited target
+            min_unvisited = np.argmin(r, axis=1) + self.n_robots
+            r = np.linalg.norm(self.x[min_unvisited, 0:2].reshape((self.n_robots, 1, 2))
+                               - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
+            action = np.argmin(np.reshape(r[self.mov_edges], (N_ROBOTS, N_ACTIONS)), axis=1)
+            return action
         else:
-            return np.random.choice(4, size=(self.n_robots,1))
-    # def controller(self):
-    #     return np.zeros((self.n_robots, 1), dtype=np.int32)
+            return np.random.choice(4, size=(self.n_robots, 1))
 
     def render(self, mode='human'):
         """
@@ -308,7 +307,6 @@ class MappingRadEnv(gym.Env):
         temp[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
         r = r * temp
 
-        # r[r > threshold] = 0
         edges = np.nonzero(r)
         return edges, r[edges]
 
