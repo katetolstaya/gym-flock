@@ -12,6 +12,13 @@ register(
     max_episode_steps=100,
 )
 
+register(
+    id='MappingRad1-v0',
+    entry_point='gym_flock.envs:MappingRad1Env',
+    max_episode_steps=100,
+)
+
+
 
 register(
     id='MappingDisc-v0',
