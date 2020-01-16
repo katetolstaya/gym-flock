@@ -33,7 +33,7 @@ class MappingRad1Env(gym.Env):
         super(MappingRad1Env, self).__init__()
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
-        self.velocity_control = True
+        self.velocity_control = False
 
         # agent dynamics are controlled with 2D acceleration
         self.nu = 2
