@@ -19,11 +19,11 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 16
+N_TARGETS = 100
 N_ROBOTS = 1
 N_ACTIONS = 6
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 5
+N_ACTIVE_TARGETS = 20
 
 
 class MappingRad1Env(gym.Env):
@@ -33,7 +33,7 @@ class MappingRad1Env(gym.Env):
         super(MappingRad1Env, self).__init__()
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
-        self.velocity_control = False
+        self.velocity_control = True
 
         # agent dynamics are controlled with 2D acceleration
         self.nu = 2
@@ -92,6 +92,7 @@ class MappingRad1Env(gym.Env):
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
         u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
+        old_x = np.copy(self.x[:self.n_robots, 0:2])
         for _ in range(10):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
@@ -110,7 +111,9 @@ class MappingRad1Env(gym.Env):
                 # clip velocity
                 self.x[:self.n_robots, 2:4] = np.clip(self.x[:self.n_robots, 2:4], -self.v_max, self.v_max)
 
+
         obs, reward, done = self._get_obs_reward()
+        reward -= 0.05 * np.sum(np.linalg.norm(old_x - self.x[:self.n_robots, 0:2], axis=1))
 
         return obs, reward, done, {}
 
@@ -144,9 +147,9 @@ class MappingRad1Env(gym.Env):
         sensor_edges, _ = self._get_graph_edges(self.obs_radius,
                                                     self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
         # update target visitation
-        # old_sum = np.sum(self.visited)
+        old_sum = np.sum(self.visited[self.n_robots:])
         self.visited[sensor_edges[0] + self.n_robots] = 1
-        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
+        reward = np.sum(self.visited[self.n_robots:]) - old_sum #- self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         # we want to fix the number of edges into the robot from targets.
