@@ -113,7 +113,7 @@ class MappingRad1Env(gym.Env):
 
 
         obs, reward, done = self._get_obs_reward()
-        reward -= 0.05 * np.sum(np.linalg.norm(old_x - self.x[:self.n_robots, 0:2], axis=1))
+        # reward -= 0.05 * np.sum(np.linalg.norm(old_x - self.x[:self.n_robots, 0:2], axis=1))
 
         return obs, reward, done, {}
 
@@ -147,9 +147,9 @@ class MappingRad1Env(gym.Env):
         sensor_edges, _ = self._get_graph_edges(self.obs_radius,
                                                     self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
         # update target visitation
-        old_sum = np.sum(self.visited[self.n_robots:])
+        # old_sum = np.sum(self.visited[self.n_robots:])
         self.visited[sensor_edges[0] + self.n_robots] = 1
-        reward = np.sum(self.visited[self.n_robots:]) - old_sum #- self.n_targets
+        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         # we want to fix the number of edges into the robot from targets.
