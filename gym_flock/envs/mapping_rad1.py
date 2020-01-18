@@ -23,7 +23,7 @@ N_TARGETS = 16
 N_ROBOTS = 1
 N_ACTIONS = 6
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 10
+N_ACTIVE_TARGETS = 16
 
 
 class MappingRad1Env(gym.Env):
@@ -192,7 +192,7 @@ class MappingRad1Env(gym.Env):
 
         # self.visited[self.n_robots:] = 1
         self.visited.fill(1)
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -360,7 +360,7 @@ class MappingRad1Env(gym.Env):
         # self.visited = np.ones((self.n_agents, 1))
         # self.visited[self.n_robots:] = 1
         self.visited = np.ones((self.n_agents, 1))
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
