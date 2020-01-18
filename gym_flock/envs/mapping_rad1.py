@@ -149,7 +149,7 @@ class MappingRad1Env(gym.Env):
         # update target visitation
         # old_sum = np.sum(self.visited[self.n_robots:])
         self.visited[sensor_edges[0] + self.n_robots] = 1
-        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
+        reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         # we want to fix the number of edges into the robot from targets.
