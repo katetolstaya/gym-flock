@@ -26,7 +26,7 @@ for _ in range(N):
     while not done:
         # compute the baseline controller
         action = env.env.env.controller()
-        action = env.env.env.controller(random=True)
+        # action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)
