@@ -26,7 +26,7 @@ for _ in range(N):
     while not done:
         # compute the baseline controller
         action = env.env.env.controller()
-        # action = env.env.env.controller(random=True)
+        action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)
@@ -34,7 +34,7 @@ for _ in range(N):
 
         # # visualize the environment
         env.render()
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
     print(episode_reward)
     total_reward += episode_reward
