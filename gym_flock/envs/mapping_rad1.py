@@ -21,7 +21,7 @@ font = {'family': 'sans-serif',
 
 N_TARGETS = 49
 N_ROBOTS = 1
-N_ACTIONS = 4
+N_ACTIONS = 6
 MAX_EDGES = 6
 N_ACTIVE_TARGETS = 49
 
@@ -31,6 +31,11 @@ class MappingRad1Env(gym.Env):
         """Initialize the mapping environment
         """
         super(MappingRad1Env, self).__init__()
+
+        self.np_random = None
+        self.seed()
+
+
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
         self.velocity_control = True
@@ -69,8 +74,7 @@ class MappingRad1Env(gym.Env):
         self.line1 = None
         self.line2 = None
         self.line3 = None
-        self.np_random = None
-        self.seed()
+
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -377,7 +381,7 @@ class MappingRad1Env(gym.Env):
         self.x[self.n_robots:, 0] = tx.flatten()
         self.x[self.n_robots:, 1] = ty.flatten()
 
-        # self.x[self.n_robots:,0:2] = np.random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
+        # self.x[self.n_robots:,0:2] = self.np_random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2])
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
