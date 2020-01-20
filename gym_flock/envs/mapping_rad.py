@@ -19,11 +19,11 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 16
+N_TARGETS = 36
 N_ROBOTS = 1
 N_ACTIONS = 6
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 5
+N_ACTIVE_TARGETS = 15
 
 
 class MappingRadEnv(gym.Env):
@@ -146,7 +146,7 @@ class MappingRadEnv(gym.Env):
         # update target visitation
         # old_sum = np.sum(self.visited)
         self.visited[sensor_edges[0] + self.n_robots] = 1
-        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
+        reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         # we want to fix the number of edges into the robot from targets.
@@ -180,16 +180,8 @@ class MappingRadEnv(gym.Env):
         """
         self.x[:self.n_robots, 0:2] = self.np_random.uniform(low=-self.r_max, high=self.r_max, size=(self.n_robots, 2))
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
-        # self.system_changed = True
-
-        # # self.visited.fill(0)
-        # self.visited = np.ones((self.n_agents, 1))
-        #
-        # self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
-
-        # self.visited[self.n_robots:] = 1
         self.visited.fill(1)
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,))+self.n_robots] = 0
+        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -212,7 +204,7 @@ class MappingRadEnv(gym.Env):
             action = np.argmin(np.reshape(r[self.mov_edges], (N_ROBOTS, N_ACTIONS)), axis=1)
             return action
         else:
-            return np.random.choice(4, size=(self.n_robots, 1))
+            return np.random.choice(4, size=(self.n_robots, 1), replace=False)
 
     def render(self, mode='human'):
         """
@@ -381,12 +373,10 @@ class MappingRadEnv(gym.Env):
 
         # problem's observation and action spaces
 
-        # each robot picks which neighbor to move to
-        # self.action_space = spaces.MultiDiscrete([self.max_actions] * self.n_robots)
-        self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
-        # see _compute_observations(self) for description of observation space
-        # self.observation_space = spaces.Box(low=-np.Inf, high=np.Inf, shape=(self.n_agents, self.nx + 3),
-        #                                     dtype=np.float32)
+        if self.n_robots == 1:
+            self.action_space = spaces.Discrete(self.n_actions)
+        else:
+            self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
 
         self.observation_space = gym.spaces.Dict(
             [

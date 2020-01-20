@@ -5,7 +5,6 @@ from gym_flock.envs.mapping_local import MappingLocalEnv
 from gym_flock.envs.mapping_vel import MappingVelEnv
 from gym_flock.envs.mapping_disc import MappingDiscEnv
 from gym_flock.envs.mapping_rad import MappingRadEnv
-from gym_flock.envs.mapping_rad1 import MappingRad1Env
 from gym_flock.envs.flocking_obstacle import FlockingObstacleEnv
 from gym_flock.envs.flocking_leader import FlockingLeaderEnv
 from gym_flock.envs.formation_flying import FormationFlyingEnv
