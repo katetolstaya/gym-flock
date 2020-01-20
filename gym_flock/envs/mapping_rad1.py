@@ -62,7 +62,7 @@ class MappingRad1Env(gym.Env):
         # graph parameters
         self.comm_radius = 5.0
         self.motion_radius = 5.0
-        self.obs_radius = 2.0
+        self.obs_radius = 3.0
 
         # call helper function to initialize arrays
         # self.system_changed = True

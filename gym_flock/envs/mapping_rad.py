@@ -57,7 +57,7 @@ class MappingRadEnv(gym.Env):
         # graph parameters
         self.comm_radius = 5.0
         self.motion_radius = 5.0
-        self.obs_radius = 2.0
+        self.obs_radius = 3.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -154,7 +154,7 @@ class MappingRadEnv(gym.Env):
         receivers = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[1], self.motion_edges[1]))
         edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
-        edges = 1.0/(edges + 0.5)
+        # edges = 1.0/(edges + 0.5)
 
         # -1 indicates unused edges
         self.senders.fill(-1)
