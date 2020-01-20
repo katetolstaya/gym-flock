@@ -5,7 +5,7 @@ import numpy as np
 import time
 
 # Initialize the gym environment
-env_name = "MappingRad1-v0"
+env_name = "MappingRad-v0"
 # env_name = "Shepherding-v0"
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']

@@ -21,7 +21,7 @@ font = {'family': 'sans-serif',
 
 N_TARGETS = 36
 N_ROBOTS = 1
-N_ACTIONS = 6
+N_ACTIONS = 5
 MAX_EDGES = 6
 N_ACTIVE_TARGETS = 15
 
