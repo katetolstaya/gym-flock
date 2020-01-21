@@ -23,7 +23,7 @@ N_TARGETS = 36
 N_ROBOTS = 1
 N_ACTIONS = 5
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 3
+N_ACTIVE_TARGETS = 1
 
 
 class MappingRadEnv(gym.Env):
