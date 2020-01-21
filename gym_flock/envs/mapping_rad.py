@@ -19,7 +19,7 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 20
+N_TARGETS = 36
 N_ROBOTS = 1
 N_ACTIONS = 6
 MAX_EDGES = 6
@@ -365,10 +365,10 @@ class MappingRadEnv(gym.Env):
 
         # initial condition
         # self.r_max = self.r_max_init * np.sqrt(self.n_agents)
-        # self.x_max = self.x_max_init * np.sqrt(self.n_agents)
-        # self.y_max = self.y_max_init * np.sqrt(self.n_agents)
-        self.x_max = self.x_max_init * 0.01  #* np.sqrt(self.n_agents)
-        self.y_max = self.y_max_init * self.n_agents
+        self.x_max = self.x_max_init * np.sqrt(self.n_agents)
+        self.y_max = self.y_max_init * np.sqrt(self.n_agents)
+        # self.x_max = self.x_max_init * 0.01  #* np.sqrt(self.n_agents)
+        # self.y_max = self.y_max_init * self.n_agents
 
         # communication radius squared
         self.comm_radius2 = self.comm_radius * self.comm_radius
@@ -388,10 +388,10 @@ class MappingRadEnv(gym.Env):
         # self.system_changed = True
 
         # initialize fixed grid of targets
-        # tempx = np.linspace(-1.0 * self.r_max, self.r_max, self.n_targets_side)
-        # tempx = np.linspace(-1.0 * self.x_max, self.x_max, 2) #self.n_targets_side)
-        tempx = np.linspace(-self.x_max, self.x_max, 1) #self.n_targets_side)
-        tempy = np.linspace(-self.y_max, self.y_max, self.n_targets) #self.n_targets_side)
+        tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
+        tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side) #self.n_targets_side)
+        # tempx = np.linspace(-self.x_max, self.x_max, 1) #self.n_targets_side)
+        # tempy = np.linspace(-self.y_max, self.y_max, self.n_targets) #self.n_targets_side)
 
         tx, ty = np.meshgrid(tempx, tempy)
         self.x[self.n_robots:, 0] = tx.flatten()
