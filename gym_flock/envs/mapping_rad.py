@@ -314,7 +314,7 @@ class MappingRadEnv(gym.Env):
     def _get_k_random_edges(k, pos1, pos2=None, self_loops=False):
         diff = MappingRadEnv._get_pos_diff(pos1, pos2)
         r = np.linalg.norm(diff, axis=2)
-        r += np.random.uniform(low=0, high=10, size=(np.shape(r)))
+        r += np.random.uniform(low=0, high=100.0, size=(np.shape(r)))
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
         # threshold = np.reshape(np.partition(r, k-1, axis=1)[:, k-1], (-1, 1))
