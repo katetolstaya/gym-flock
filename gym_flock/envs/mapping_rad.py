@@ -132,7 +132,7 @@ class MappingRadEnv(gym.Env):
         # obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
 
         # movement edges from robots to targets
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges, mov_dist = self._get_k_random_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
@@ -230,6 +230,10 @@ class MappingRadEnv(gym.Env):
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
+            for (x,y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
+                circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
+                self.ax.add_patch(circle)
+
             # set plot limits, axis parameters, title
             plt.xlim(-1.0 * self.y_max, self.y_max)
             plt.ylim(-1.0 * self.y_max, self.y_max)
@@ -293,6 +297,24 @@ class MappingRadEnv(gym.Env):
     def _get_k_edges(k, pos1, pos2=None, self_loops=False):
         diff = MappingRadEnv._get_pos_diff(pos1, pos2)
         r = np.linalg.norm(diff, axis=2)
+        if not self_loops and pos2 is None:
+            np.fill_diagonal(r, np.Inf)
+        # threshold = np.reshape(np.partition(r, k-1, axis=1)[:, k-1], (-1, 1))
+
+        idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
+
+        temp = np.zeros(np.shape(r))
+        temp[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
+        r = r * temp
+
+        edges = np.nonzero(r)
+        return edges, r[edges]
+
+    @staticmethod
+    def _get_k_random_edges(k, pos1, pos2=None, self_loops=False):
+        diff = MappingRadEnv._get_pos_diff(pos1, pos2)
+        r = np.linalg.norm(diff, axis=2)
+        r += np.random.uniform(low=0, high=10, size=(np.shape(r)))
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
         # threshold = np.reshape(np.partition(r, k-1, axis=1)[:, k-1], (-1, 1))
