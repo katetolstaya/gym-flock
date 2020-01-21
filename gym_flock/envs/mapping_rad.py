@@ -130,8 +130,8 @@ class MappingRadEnv(gym.Env):
         obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
 
         # movement edges from robots to targets
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
-        mov_edges = (mov_edges[0] + self.n_robots, mov_edges[1])
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
 
@@ -148,8 +148,8 @@ class MappingRadEnv(gym.Env):
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         # we want to fix the number of edges into the robot from targets.
-        senders = np.concatenate((obs_edges[0], mov_edges[0], comm_edges[0], self.motion_edges[0]))
-        receivers = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[1], self.motion_edges[1]))
+        senders = np.concatenate((obs_edges[0], mov_edges[1], comm_edges[0], self.motion_edges[0]))
+        receivers = np.concatenate((obs_edges[1], mov_edges[0], comm_edges[1], self.motion_edges[1]))
         edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
         edges = 1.0/(edges + 0.1)
