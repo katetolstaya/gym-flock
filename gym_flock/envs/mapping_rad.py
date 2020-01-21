@@ -147,12 +147,14 @@ class MappingRadEnv(gym.Env):
         reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
+        subset_motion_edges = np.random.choice(len(self.motion_dist), size=(int(len(self.motion_dist)/2),), replace=False)
+
         # we want to fix the number of edges into the robot from targets.
-        senders = np.concatenate((mov_edges[1], comm_edges[0], self.motion_edges[0]))
+        senders = np.concatenate((mov_edges[1], comm_edges[0], self.motion_edges[0][subset_motion_edges]))
         # senders = np.concatenate((obs_edges[0], mov_edges[1], comm_edges[0], self.motion_edges[0]))
-        receivers = np.concatenate((mov_edges[0], comm_edges[1], self.motion_edges[1]))
+        receivers = np.concatenate((mov_edges[0], comm_edges[1], self.motion_edges[1][subset_motion_edges]))
         # receivers = np.concatenate((obs_edges[1], mov_edges[0], comm_edges[1], self.motion_edges[1]))
-        edges = np.concatenate((mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
+        edges = np.concatenate((mov_dist, comm_dist, self.motion_dist[subset_motion_edges])).reshape((-1, 1))
         # edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
         edges = 1.0/(edges + 0.1)
