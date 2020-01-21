@@ -23,7 +23,7 @@ N_TARGETS = 36
 N_ROBOTS = 1
 N_ACTIONS = 5
 MAX_EDGES = 6
-N_ACTIVE_TARGETS = 2
+N_ACTIVE_TARGETS = 3
 
 
 class MappingRadEnv(gym.Env):
@@ -126,14 +126,12 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
         # observation edges from targets to nearby robots
-        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius,
-                                                    self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
-        obs_edges = (obs_edges[0] + self.n_robots, obs_edges[1])
+        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],  self.x[self.n_robots:, 0:2])
+        obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
 
         # movement edges from robots to targets
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                self.x[self.n_robots:, 0:2])
-        mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
+        mov_edges = (mov_edges[0] + self.n_robots, mov_edges[1])
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
 
@@ -154,7 +152,7 @@ class MappingRadEnv(gym.Env):
         receivers = np.concatenate((obs_edges[1], mov_edges[1], comm_edges[1], self.motion_edges[1]))
         edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
-        # edges = 1.0/(edges + 0.5)
+        edges = 1.0/(edges + 0.1)
 
         # -1 indicates unused edges
         self.senders.fill(-1)
