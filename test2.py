@@ -32,9 +32,9 @@ for _ in range(N):
         obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
-        # # # visualize the environment
-        env.render()
-        time.sleep(0.1)
+        # # visualize the environment
+        # env.render()
+        # time.sleep(0.1)
 
     print(episode_reward)
     total_reward += episode_reward
