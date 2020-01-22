@@ -1,12 +1,5 @@
-import gym
-from gym import spaces, error, utils
-from gym.utils import seeding
 import numpy as np
-import configparser
-from os import path
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import gca
-from gym_flock.envs.flocking_relative import FlockingRelativeEnv
+from gym_flock.envs.flocking.flocking_relative import FlockingRelativeEnv
 
 def grid(N, side=5):
     side2 = int(N / side)

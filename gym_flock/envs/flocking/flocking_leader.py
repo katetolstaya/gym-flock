@@ -1,7 +1,5 @@
-import gym
 import numpy as np
-import matplotlib.pyplot as plt
-from gym_flock.envs.flocking_relative import FlockingRelativeEnv
+from gym_flock.envs.flocking.flocking_relative import FlockingRelativeEnv
 
 
 class FlockingLeaderEnv(FlockingRelativeEnv):

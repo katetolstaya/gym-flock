@@ -1,5 +1,5 @@
 import numpy as np
-from gym_flock.envs.flocking_relative import FlockingRelativeEnv
+from gym_flock.envs.flocking.flocking_relative import FlockingRelativeEnv
 
 
 class FlockingEnv(FlockingRelativeEnv):

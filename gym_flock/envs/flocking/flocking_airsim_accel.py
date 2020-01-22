@@ -1,8 +1,8 @@
 import airsim
 import numpy as np
 from time import sleep
-from gym_flock.envs.flocking_relative import FlockingRelativeEnv
-from gym_flock.envs.utils import grid, parse_settings, twoflocks_old
+from gym_flock.envs.flocking.flocking_relative import FlockingRelativeEnv
+from gym_flock.envs.flocking.utils import grid, parse_settings
 
 
 class FlockingAirsimAccelEnv(FlockingRelativeEnv):

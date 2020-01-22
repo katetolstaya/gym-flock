@@ -1,6 +1,6 @@
 import numpy as np
-from gym_flock.envs.flocking_relative import FlockingRelativeEnv
-from gym_flock.envs.utils import twoflocks, grid
+from gym_flock.envs.flocking.flocking_relative import FlockingRelativeEnv
+from gym_flock.envs.flocking.utils import grid
 
 
 class FlockingTwoFlocksEnv(FlockingRelativeEnv):
