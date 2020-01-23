@@ -19,11 +19,11 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 100
-N_ROBOTS = 10
-N_ACTIONS = 15
-MAX_EDGES = 6
-N_ACTIVE_TARGETS = 20
+N_TARGETS = 60
+N_ROBOTS = 1
+N_ACTIONS = 5
+MAX_EDGES = 10
+N_ACTIVE_TARGETS = 3
 
 
 class MappingRadEnv(gym.Env):
@@ -31,9 +31,12 @@ class MappingRadEnv(gym.Env):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
+        self.np_random = None
+        self.seed()
+
         # dim of state per agent, 2D position and 2D velocity
         self.nx = 4
-        self.velocity_control = False
+        self.velocity_control = True
 
         # agent dynamics are controlled with 2D acceleration
         self.nu = 2
@@ -44,9 +47,9 @@ class MappingRadEnv(gym.Env):
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
-        self.dt = 1.0
+        self.dt = 2.0
         self.ddt = self.dt / 10.0
-        self.v_max = 5.0  # max velocity
+        self.v_max = 3.0  # max velocity
         self.a_max = 3.0  # max acceleration
         self.action_gain = 1.0  # controller gain
 
@@ -71,8 +74,7 @@ class MappingRadEnv(gym.Env):
         self.line1 = None
         self.line2 = None
         self.line3 = None
-        self.np_random = None
-        self.seed()
+
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -98,7 +100,7 @@ class MappingRadEnv(gym.Env):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
             u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
-            u = u * self.action_gain
+            u = (u + 0.1 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
 
             if self.velocity_control:
                 self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + u[:, 0:2] * self.ddt
@@ -128,7 +130,8 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
         # movement edges from robots to K random landmarks
-        mov_edges, mov_dist = self._get_k_random_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        # mov_edges, mov_dist = self._get_k_random_edges(self, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
@@ -174,15 +177,26 @@ class MappingRadEnv(gym.Env):
 
         return obs, reward, done
 
+    def get_visitation(self, pos, visited):
+        # observation edges from robots to nearby landmarks
+        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, pos[:self.n_robots, 0:2],  pos[self.n_robots:, 0:2])
+        obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
+        visited[obs_edges[1]] = 1
+        return visited
+
     def reset(self):
         """
         Reset system state. Agents are initialized in a square with side self.r_max
         :return: observations, adjacency matrix
         """
-        self.x[:self.n_robots, 0:2] = self.np_random.uniform(low=[-self.x_max, -self.y_max], high=[self.x_max, self.y_max], size=(self.n_robots, 2))
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
+
+        # initialize robots near targets
+        self.x[:self.n_robots, 0:2] = self.x[self.np_random.choice(self.n_targets, size=(self.n_robots,))+self.n_robots,0:2]
+        self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5*self.motion_radius, high=0.5*self.motion_radius, size=(self.n_robots, 2))
+
         self.visited.fill(1)
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -193,6 +207,28 @@ class MappingRadEnv(gym.Env):
         :return: control action for each robot (global index of agent chosen)
         """
         if not random:
+
+            # # # # need deep copy here?
+            # best_positions = self.x.copy()  # [:self.n_robots, 0:2]
+            # best_actions = self.np_random.choice(a=N_ACTIONS, size=(self.n_robots,)) #np.zeros((self.n_robots,), dtype=int)
+            # best_visited = self.visited.copy()
+            # edges = np.reshape(self.mov_edges[1], (N_ROBOTS, N_ACTIONS))
+            #
+            # # robot_order = np.array(range(self.n_robots))
+            # # self.np_random.shuffle(robot_order)
+            #
+            # for i in range(self.n_robots):
+            #     cur_positions = best_positions.copy()
+            #     cur_visited = best_visited.copy()
+            #     for j, node_ind in enumerate(edges[i, :]):
+            #         cur_positions[i, 0:2] = self.x[node_ind, 0:2]
+            #         new_visit = self.get_visitation(cur_positions, cur_visited)
+            #         if np.sum(new_visit) > np.sum(best_visited):
+            #             best_visited = new_visit.copy()
+            #             best_actions[i] = j
+            #             best_positions[i, 0:2] = self.x[node_ind, 0:2]
+            # return best_actions
+
             # get closest unvisited
             r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
                                - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
@@ -205,7 +241,7 @@ class MappingRadEnv(gym.Env):
             action = np.argmin(np.reshape(r[self.mov_edges], (N_ROBOTS, N_ACTIONS)), axis=1)
             return action
         else:
-            return np.random.choice(self.n_actions, size=(self.n_robots, 1))
+            return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
 
     def render(self, mode='human'):
         """
@@ -228,13 +264,13 @@ class MappingRadEnv(gym.Env):
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
-            # for (x,y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
-            #     circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
-            #     self.ax.add_patch(circle)
+            for (x,y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
+                circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
+                self.ax.add_patch(circle)
 
             # set plot limits, axis parameters, title
-            plt.xlim(-1.0 * self.y_max, self.y_max)
-            plt.ylim(-1.0 * self.y_max, self.y_max)
+            plt.xlim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
+            plt.ylim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
@@ -332,7 +368,7 @@ class MappingRadEnv(gym.Env):
         return edges, r[edges]
 
     @staticmethod
-    def _get_k_random_edges(k, pos1, pos2=None, self_loops=False):
+    def _get_k_random_edges(self, k, pos1, pos2=None, self_loops=False):
         """
         Get list of edges from agents in positions pos1 to positions pos2.
         Each agent in pos1 will have K outgoing edges.
@@ -345,8 +381,10 @@ class MappingRadEnv(gym.Env):
         """
         diff = MappingRadEnv._get_pos_diff(pos1, pos2)
         r = np.linalg.norm(diff, axis=2)
-        r /= np.sum(r, axis=1).reshape(-1, 1)
-        r += np.random.uniform(low=0, high=1/N_TARGETS, size=(np.shape(r)))
+        r = self.np_random.gumbel(0, 1, size=np.shape(r))*10 + np.log(r)
+        # r *= -1
+        # r /= np.sum(r, axis=1).reshape(-1, 1)
+        # r += self.np_random.uniform(low=0, high=1/N_TARGETS/10, size=(np.shape(r)))
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
 
@@ -395,10 +433,10 @@ class MappingRadEnv(gym.Env):
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
         # initial condition
-        self.x_max = self.x_max_init * np.sqrt(self.n_agents)
-        self.y_max = self.y_max_init * np.sqrt(self.n_agents)
-        # self.x_max = self.x_max_init * 0.01  #* np.sqrt(self.n_agents)
-        # self.y_max = self.y_max_init * self.n_agents
+        # self.x_max = self.x_max_init * np.sqrt(self.n_agents)
+        # self.y_max = self.y_max_init * np.sqrt(self.n_agents)
+        self.x_max = self.x_max_init * self.n_agents / 6
+        self.y_max = self.y_max_init * self.n_agents / 6
 
         # communication radius squared
         self.comm_radius2 = self.comm_radius * self.comm_radius
@@ -406,7 +444,7 @@ class MappingRadEnv(gym.Env):
         # initialize state matrices
         self.x = np.zeros((self.n_agents, self.nx))
         self.visited = np.ones((self.n_agents, 1))
-        self.visited[np.random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
@@ -415,17 +453,50 @@ class MappingRadEnv(gym.Env):
         self.r2 = np.zeros((self.n_agents, self.n_agents))
         # self.system_changed = True
 
+        per_side = int(self.n_targets / 6)
+
+
+        targets = set()
+
         # initialize fixed grid of targets
-        tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
-        tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side)
-        # tempx = np.linspace(-self.x_max, self.x_max, 1)
-        # tempy = np.linspace(-self.y_max, self.y_max, self.n_targets)
-
+        tempx = np.linspace(-self.x_max, -self.x_max, 1)
+        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
         tx, ty = np.meshgrid(tempx, tempy)
-        self.x[self.n_robots:, 0] = tx.flatten()
-        self.x[self.n_robots:, 1] = ty.flatten()
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        # self.x[self.n_robots:,0:2] = np.random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
+        tempx = np.linspace(self.x_max, self.x_max, 1)
+        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
+        tx, ty = np.meshgrid(tempx, tempy)
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+        tempx = np.linspace(0, 0, 1)
+        tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
+        tx, ty = np.meshgrid(tempx, tempy)
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
+        tempy = np.linspace(self.y_max, self.y_max, 1)
+        tx, ty = np.meshgrid(tempx, tempy)
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
+        tempy = np.linspace(-self.y_max, -self.y_max, 1)
+        tx, ty = np.meshgrid(tempx, tempy)
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+        tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
+        tempy = np.linspace(0, 0, 1)
+        tx, ty = np.meshgrid(tempx, tempy)
+        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+        targets.add((self.x_max, self.y_max))
+
+        targets = list(zip(*targets))
+
+        self.x[self.n_robots:, 0] = targets[0]
+        self.x[self.n_robots:, 1] = targets[1]
+
+        # self.x[self.n_robots:,0:2] = self.np_random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2])
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
