@@ -19,11 +19,19 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 60
+N_TARGETS = 36
 N_ROBOTS = 1
 N_ACTIONS = 15
 MAX_EDGES = 10
-N_ACTIVE_TARGETS = 3
+N_ACTIVE_TARGETS = 6
+GRID = False
+
+# N_TARGETS = 900
+# N_ROBOTS = 10
+# N_ACTIONS = 15
+# MAX_EDGES = 15
+# N_ACTIVE_TARGETS = 200
+# GRID = True
 
 
 class MappingRadEnv(gym.Env):
@@ -171,6 +179,8 @@ class MappingRadEnv(gym.Env):
         self.senders.fill(-1)
         self.receivers.fill(-1)
 
+        # print(len(senders))
+        # print(np.shape(self.senders)[0])
         assert len(senders) <= np.shape(self.senders)[0]
 
         self.senders[:len(senders)] = senders
@@ -271,9 +281,9 @@ class MappingRadEnv(gym.Env):
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
-            for (x,y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
-                circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
-                self.ax.add_patch(circle)
+            # for (x, y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
+            #     circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
+            #     self.ax.add_patch(circle)
 
             # set plot limits, axis parameters, title
             plt.xlim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
@@ -439,12 +449,6 @@ class MappingRadEnv(gym.Env):
         self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
-        # initial condition
-        # self.x_max = self.x_max_init * np.sqrt(self.n_agents)
-        # self.y_max = self.y_max_init * np.sqrt(self.n_agents)
-        self.x_max = self.x_max_init * self.n_agents / 6
-        self.y_max = self.y_max_init * self.n_agents / 6
-
         # communication radius squared
         self.comm_radius2 = self.comm_radius * self.comm_radius
 
@@ -458,58 +462,71 @@ class MappingRadEnv(gym.Env):
         # caching distance computation
         self.diff = np.zeros((self.n_agents, self.n_agents, self.nx))
         self.r2 = np.zeros((self.n_agents, self.n_agents))
-        # self.system_changed = True
-
-        per_side = int(self.n_targets / 6)
 
 
-        targets = set()
+        if GRID:
+            # TODO get this working again
+            self.n_targets_side = int(np.sqrt(self.n_targets))
+            self.x_max = self.x_max_init * self.n_targets_side / 2
+            self.y_max = self.y_max_init * self.n_targets_side / 2
+            # self.x_max = self.x_max_init * np.sqrt(self.n_agents)
+            # self.y_max = self.y_max_init * np.sqrt(self.n_agents)
+            tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
+            tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side)
+            tx, ty = np.meshgrid(tempx, tempy)
+            self.x[self.n_robots:, 0] = tx.flatten()
+            self.x[self.n_robots:, 1] = ty.flatten()
 
-        # initialize fixed grid of targets
-        tempx = np.linspace(-self.x_max, -self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+        else:
+            self.x_max = self.x_max_init * self.n_agents / 6
+            self.y_max = self.y_max_init * self.n_agents / 6
 
-        tempx = np.linspace(self.x_max, self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            per_side = int(self.n_targets / 6)
 
-        tempx = np.linspace(0, 0, 1)
-        tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            targets = set()
 
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(self.y_max, self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            # initialize fixed grid of targets
+            tempx = np.linspace(-self.x_max, -self.x_max, 1)
+            tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(-self.y_max, -self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            tempx = np.linspace(self.x_max, self.x_max, 1)
+            tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(0, 0, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            tempx = np.linspace(0, 0, 1)
+            tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        targets.add((self.x_max, self.y_max))
+            tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
+            tempy = np.linspace(self.y_max, self.y_max, 1)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        targets = list(zip(*targets))
+            tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
+            tempy = np.linspace(-self.y_max, -self.y_max, 1)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        self.x[self.n_robots:, 0] = targets[0]
-        self.x[self.n_robots:, 1] = targets[1]
+            tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
+            tempy = np.linspace(0, 0, 1)
+            tx, ty = np.meshgrid(tempx, tempy)
+            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-        # self.x[self.n_robots:,0:2] = self.np_random.uniform(-1.0 * self.r_max, self.r_max, (self.n_targets, 2))
+            targets.add((self.x_max, self.y_max))
+
+            targets = list(zip(*targets))
+
+            self.x[self.n_robots:, 0] = targets[0]
+            self.x[self.n_robots:, 1] = targets[1]
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2])
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
 
         # problem's observation and action spaces
-
         if self.n_robots == 1:
             self.action_space = spaces.Discrete(self.n_actions)
         else:
