@@ -19,19 +19,21 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 36
-N_ROBOTS = 1
-N_ACTIONS = 15
-MAX_EDGES = 10
-N_ACTIVE_TARGETS = 6
-GRID = False
-
-# N_TARGETS = 900
-# N_ROBOTS = 10
+# N_TARGETS = 36
+# N_ROBOTS = 1
 # N_ACTIONS = 15
-# MAX_EDGES = 15
-# N_ACTIVE_TARGETS = 200
-# GRID = True
+# MAX_EDGES = 10
+# N_ACTIVE_TARGETS = 6
+# GRID = False
+
+N_TARGETS = 900
+N_ROBOTS = 10
+N_ACTIONS = 15
+MAX_EDGES = 15
+N_ACTIVE_TARGETS = 200
+GRID = True
+
+CIRCLES = False
 
 
 class MappingRadEnv(gym.Env):
@@ -179,8 +181,6 @@ class MappingRadEnv(gym.Env):
         self.senders.fill(-1)
         self.receivers.fill(-1)
 
-        # print(len(senders))
-        # print(np.shape(self.senders)[0])
         assert len(senders) <= np.shape(self.senders)[0]
 
         self.senders[:len(senders)] = senders
@@ -281,9 +281,10 @@ class MappingRadEnv(gym.Env):
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
-            # for (x, y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
-            #     circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
-            #     self.ax.add_patch(circle)
+            if CIRCLES:
+                for (x, y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
+                    circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
+                    self.ax.add_patch(circle)
 
             # set plot limits, axis parameters, title
             plt.xlim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
@@ -463,14 +464,11 @@ class MappingRadEnv(gym.Env):
         self.diff = np.zeros((self.n_agents, self.n_agents, self.nx))
         self.r2 = np.zeros((self.n_agents, self.n_agents))
 
-
         if GRID:
             # TODO get this working again
             self.n_targets_side = int(np.sqrt(self.n_targets))
-            self.x_max = self.x_max_init * self.n_targets_side / 2
-            self.y_max = self.y_max_init * self.n_targets_side / 2
-            # self.x_max = self.x_max_init * np.sqrt(self.n_agents)
-            # self.y_max = self.y_max_init * np.sqrt(self.n_agents)
+            self.x_max = self.x_max_init * self.n_targets_side
+            self.y_max = self.y_max_init * self.n_targets_side
             tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
             tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side)
             tx, ty = np.meshgrid(tempx, tempy)
