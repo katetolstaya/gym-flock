@@ -21,7 +21,7 @@ font = {'family': 'sans-serif',
 
 N_TARGETS = 60
 N_ROBOTS = 1
-N_ACTIONS = 5
+N_ACTIONS = 15
 MAX_EDGES = 10
 N_ACTIVE_TARGETS = 3
 
@@ -96,6 +96,13 @@ class MappingRadEnv(gym.Env):
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
         u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
+        # # project onto the nearest 5 edges
+        # n_nearby_nodes = 10
+        # mov_edges, _ = self._get_k_edges(n_nearby_nodes, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        # r = np.linalg.norm(self.x[u_ind, 0:2].reshape((self.n_robots, 1, 2))
+        #                    - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
+        # u_ind = np.argmin(np.reshape(r[mov_edges], (N_ROBOTS, n_nearby_nodes)), axis=1)
+
         for _ in range(10):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
@@ -130,8 +137,8 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
         # movement edges from robots to K random landmarks
-        # mov_edges, mov_dist = self._get_k_random_edges(self, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges, mov_dist = self._get_k_random_edges(self.np_random, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        # mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
@@ -368,7 +375,7 @@ class MappingRadEnv(gym.Env):
         return edges, r[edges]
 
     @staticmethod
-    def _get_k_random_edges(self, k, pos1, pos2=None, self_loops=False):
+    def _get_k_random_edges(np_random, k, pos1, pos2=None, self_loops=False):
         """
         Get list of edges from agents in positions pos1 to positions pos2.
         Each agent in pos1 will have K outgoing edges.
@@ -381,10 +388,10 @@ class MappingRadEnv(gym.Env):
         """
         diff = MappingRadEnv._get_pos_diff(pos1, pos2)
         r = np.linalg.norm(diff, axis=2)
-        r = self.np_random.gumbel(0, 1, size=np.shape(r))*10 + np.log(r)
+        # r = np_random.gumbel(0, 1, size=np.shape(r))*10 + np.log(r)
         # r *= -1
-        # r /= np.sum(r, axis=1).reshape(-1, 1)
-        # r += self.np_random.uniform(low=0, high=1/N_TARGETS/10, size=(np.shape(r)))
+        r /= np.sum(r, axis=1).reshape(-1, 1)
+        r += np_random.uniform(low=0, high=1/N_TARGETS, size=(np.shape(r)))
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
 
