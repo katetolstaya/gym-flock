@@ -21,7 +21,8 @@ font = {'family': 'sans-serif',
 
 N_TARGETS = 36
 N_ROBOTS = 1
-N_ACTIONS = 15
+# N_ACTIONS = 15
+N_ACTIONS = 5
 MAX_EDGES = 10
 N_ACTIVE_TARGETS = 6
 GRID = False
@@ -147,8 +148,8 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
         # movement edges from robots to K random landmarks
-        mov_edges, mov_dist = self._get_k_random_edges(self.np_random, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
-        # mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        # mov_edges, mov_dist = self._get_k_random_edges(self.np_random, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * N_ROBOTS
