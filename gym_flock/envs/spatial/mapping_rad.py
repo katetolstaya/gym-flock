@@ -19,19 +19,19 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-# N_TARGETS = 36
-# N_ROBOTS = 1
-# N_ACTIONS = 15
-# MAX_EDGES = 10
-# N_ACTIVE_TARGETS = 6
-# GRID = False
-
-N_TARGETS = 900
-N_ROBOTS = 10
+N_TARGETS = 36
+N_ROBOTS = 1
 N_ACTIONS = 15
-MAX_EDGES = 15
-N_ACTIVE_TARGETS = 200
-GRID = True
+MAX_EDGES = 10
+N_ACTIVE_TARGETS = 6
+GRID = False
+
+# N_TARGETS = 900
+# N_ROBOTS = 10
+# N_ACTIONS = 15
+# MAX_EDGES = 15
+# N_ACTIVE_TARGETS = 200
+# GRID = True
 
 CIRCLES = False
 
