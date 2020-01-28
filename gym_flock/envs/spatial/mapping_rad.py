@@ -477,10 +477,13 @@ class MappingRadEnv(gym.Env):
             self.x[self.n_robots:, 1] = ty.flatten()
 
         else:
-            self.x_max = self.x_max_init * self.n_agents / 6
-            self.y_max = self.y_max_init * self.n_agents / 6
+            # self.x_max = self.x_max_init * self.n_agents / 6
+            self.x_max = self.x_max_init * self.n_agents / 4
+            # self.y_max = self.y_max_init * self.n_agents / 6
+            self.y_max = self.y_max_init * self.n_agents / 4
 
-            per_side = int(self.n_targets / 6)
+            # per_side = int(self.n_targets / 6)
+            per_side = int(self.n_targets / 4)
 
             targets = set()
 
@@ -495,10 +498,10 @@ class MappingRadEnv(gym.Env):
             tx, ty = np.meshgrid(tempx, tempy)
             targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-            tempx = np.linspace(0, 0, 1)
-            tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
-            tx, ty = np.meshgrid(tempx, tempy)
-            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            # tempx = np.linspace(0, 0, 1)
+            # tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
+            # tx, ty = np.meshgrid(tempx, tempy)
+            # targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
             tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
             tempy = np.linspace(self.y_max, self.y_max, 1)
@@ -510,10 +513,10 @@ class MappingRadEnv(gym.Env):
             tx, ty = np.meshgrid(tempx, tempy)
             targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
-            tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
-            tempy = np.linspace(0, 0, 1)
-            tx, ty = np.meshgrid(tempx, tempy)
-            targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+            # tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
+            # tempy = np.linspace(0, 0, 1)
+            # tx, ty = np.meshgrid(tempx, tempy)
+            # targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
 
             targets.add((self.x_max, self.y_max))
 
