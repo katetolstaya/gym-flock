@@ -9,7 +9,7 @@ register(
 register(
     id='MappingRad-v0',
     entry_point='gym_flock.envs.spatial:MappingRadEnv',
-    max_episode_steps=20,
+    max_episode_steps=50,
 )
 
 register(

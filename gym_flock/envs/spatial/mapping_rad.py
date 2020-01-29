@@ -22,9 +22,9 @@ font = {'family': 'sans-serif',
 N_TARGETS = 36
 N_ROBOTS = 1
 # N_ACTIONS = 15
-N_ACTIONS = 5
+N_ACTIONS = 2
 MAX_EDGES = 10
-N_ACTIVE_TARGETS = 6
+N_ACTIVE_TARGETS = 10
 GRID = False
 
 # N_TARGETS = 900
@@ -34,7 +34,7 @@ GRID = False
 # N_ACTIVE_TARGETS = 200
 # GRID = True
 
-CIRCLES = False
+CIRCLES = True
 
 
 class MappingRadEnv(gym.Env):
@@ -71,9 +71,9 @@ class MappingRadEnv(gym.Env):
         self.y_max_init = 2.0
 
         # graph parameters
-        self.comm_radius = 6.0
-        self.motion_radius = 6.0
-        self.obs_radius = 6.0
+        self.comm_radius = 5.0
+        self.motion_radius = 5.0
+        self.obs_radius = 5.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -85,7 +85,6 @@ class MappingRadEnv(gym.Env):
         self.line1 = None
         self.line2 = None
         self.line3 = None
-
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -176,7 +175,8 @@ class MappingRadEnv(gym.Env):
         receivers = np.concatenate((obs_edges[1], mov_edges[0], comm_edges[1], self.motion_edges[1]))
         edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
-        edges = 1.0/(edges + 0.1)
+        # edges = 1.0/(edges + 0.1)
+        # edges.fill(1.0)
 
         # -1 indicates unused edges
         self.senders.fill(-1)
@@ -377,10 +377,16 @@ class MappingRadEnv(gym.Env):
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
 
-        idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
+        # idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
 
+        idx = np.argpartition(r, k, axis=1)[:, 0:k+1]
         mask = np.zeros(np.shape(r))
         mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
+
+        # remove the closest edge
+        idx = np.argmin(r, axis=1)
+        mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 0
+        ##
         r = r * mask
 
         edges = np.nonzero(r)
