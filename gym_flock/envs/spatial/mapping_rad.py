@@ -22,11 +22,11 @@ font = {'family': 'sans-serif',
 N_TARGETS = 36
 N_ROBOTS = 1
 # N_ACTIONS = 15
-N_ACTIONS = 4
+N_ACTIONS = 2
 MAX_EDGES = 10
 N_ACTIVE_TARGETS = 10
 GRID = False
-SQUARE = False
+SQUARE = True
 
 # N_TARGETS = 900
 # N_ROBOTS = 10
