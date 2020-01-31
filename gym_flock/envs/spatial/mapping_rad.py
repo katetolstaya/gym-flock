@@ -21,12 +21,19 @@ font = {'family': 'sans-serif',
 
 N_TARGETS = 36
 N_ROBOTS = 1
-# N_ACTIONS = 15
-N_ACTIONS = 2
+N_ACTIONS = 4
 MAX_EDGES = 10
-N_ACTIVE_TARGETS = 10
-GRID = False
-SQUARE = True
+N_ACTIVE_TARGETS = 20
+GRID = True
+SQUARE = False
+
+# N_TARGETS = 36
+# N_ROBOTS = 1
+# N_ACTIONS = 2
+# MAX_EDGES = 10
+# N_ACTIVE_TARGETS = 10
+# GRID = False
+# SQUARE = True
 
 # N_TARGETS = 900
 # N_ROBOTS = 10
@@ -577,7 +584,7 @@ class MappingRadEnv(gym.Env):
 
     @staticmethod
     def unpack_obs(obs):
-        assert tf is not None, "Function unpack_obs_graph_coord_tf() is not available if Tensorflow is not imported."
+        assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
         n_nodes = N_ROBOTS + N_TARGETS
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
@@ -592,7 +599,6 @@ class MappingRadEnv(gym.Env):
         nodes, edges, senders, receivers = tensors
         batch_size = tf.shape(nodes)[0]
 
-        # TODO mask nodes too - assumes num. of landmarks is fixed (BAD)
         n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
         nodes = tf.reshape(nodes, (-1, dim_nodes))
 
