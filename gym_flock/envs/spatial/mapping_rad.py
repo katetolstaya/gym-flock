@@ -9,6 +9,8 @@ from matplotlib.pyplot import gca
 from collections import OrderedDict
 from gym.spaces import Box
 
+from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions
+
 try:
     import tensorflow as tf
 except ImportError:
@@ -19,13 +21,11 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 36
+N_TARGETS = 123
 N_ROBOTS = 1
 N_ACTIONS = 4
-MAX_EDGES = 10
-N_ACTIVE_TARGETS = 1
-GRID = True
-SQUARE = True
+MAX_EDGES = 5
+N_ACTIVE_TARGETS = 60
 
 # N_TARGETS = 36
 # N_ROBOTS = 1
@@ -62,7 +62,7 @@ class MappingRadEnv(gym.Env):
 
         # number of robots and targets
         self.n_targets = N_TARGETS
-        self.n_targets_side = int(np.sqrt(self.n_targets))
+        # self.n_targets_side = int(np.sqrt(self.n_targets))
         self.n_robots = N_ROBOTS
 
         # dynamics parameters
@@ -79,9 +79,9 @@ class MappingRadEnv(gym.Env):
         self.y_max_init = 2.0
 
         # graph parameters
-        self.comm_radius = 5.0
-        self.motion_radius = 5.0
-        self.obs_radius = 5.0
+        self.comm_radius = 6.0
+        self.motion_radius = 6.0
+        self.obs_radius = 6.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -296,8 +296,10 @@ class MappingRadEnv(gym.Env):
                     self.ax.add_patch(circle)
 
             # set plot limits, axis parameters, title
-            plt.xlim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
-            plt.ylim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
+            # plt.xlim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
+            # plt.ylim(-1.0 * self.y_max - 10.0, self.y_max + 10.0)
+            plt.xlim(self.x_min, self.x_max)
+            plt.ylim(self.y_min, self.y_max)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
@@ -400,62 +402,88 @@ class MappingRadEnv(gym.Env):
         edges = np.nonzero(r)
         return edges, r[edges]
 
-    @staticmethod
-    def _get_k_random_edges(np_random, k, pos1, pos2=None, self_loops=False):
-        """
-        Get list of edges from agents in positions pos1 to positions pos2.
-        Each agent in pos1 will have K outgoing edges.
-        Edges are sampled with probabilities proportional to the proximity of nodes
-        :param k: number of edges
-        :param pos1: first set of positions
-        :param pos2: second set of positions
-        :param self_loops: boolean flag indicating whether to include self loops
-        :return: (senders, receivers), edge features
-        """
-        diff = MappingRadEnv._get_pos_diff(pos1, pos2)
-        r = np.linalg.norm(diff, axis=2)
-        # r = np_random.gumbel(0, 1, size=np.shape(r))*10 + np.log(r)
-        # r *= -1
-        r /= np.sum(r, axis=1).reshape(-1, 1)
-        r += np_random.uniform(low=0, high=1/N_TARGETS, size=(np.shape(r)))
-        if not self_loops and pos2 is None:
-            np.fill_diagonal(r, np.Inf)
+    # def _get_k_random_edges(self, np_random, k, pos1, pos2=None, self_loops=False):
+    #     """
+    #     Get list of edges from agents in positions pos1 to positions pos2.
+    #     Each agent in pos1 will have K outgoing edges.
+    #     Edges are sampled with probabilities proportional to the proximity of nodes
+    #     :param k: number of edges
+    #     :param pos1: first set of positions
+    #     :param pos2: second set of positions
+    #     :param self_loops: boolean flag indicating whether to include self loops
+    #     :return: (senders, receivers), edge features
+    #     """
+    #     diff = MappingRadEnv._get_pos_diff(pos1, pos2)
+    #     r = np.linalg.norm(diff, axis=2)
+    #     # r = np_random.gumbel(0, 1, size=np.shape(r))*10 + np.log(r)
+    #     # r *= -1
+    #     r /= np.sum(r, axis=1).reshape(-1, 1)
+    #     r += np_random.uniform(low=0, high=1/self.n_targets, size=(np.shape(r)))
+    #     if not self_loops and pos2 is None:
+    #         np.fill_diagonal(r, np.Inf)
+    #
+    #     idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
+    #
+    #     mask = np.zeros(np.shape(r))
+    #     mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
+    #     r = r * mask
+    #
+    #     edges = np.nonzero(r)
+    #     return edges, r[edges]
 
-        idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
-
-        mask = np.zeros(np.shape(r))
-        mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
-        r = r * mask
-
-        edges = np.nonzero(r)
-        return edges, r[edges]
-
-    def params_from_cfg(self, args):
-        """
-        Load experiment parameters from a configparser object
-        :param args: loaded configparser object
-        """
-        # number of robots and targets
-        self.n_targets = args.getint('n_targets')
-        self.n_targets_side = int(np.sqrt(self.n_targets))
-        self.n_robots = args.getint('n_robots')
-
-        # load graph parameters
-        self.comm_radius = args.getfloat('comm_radius')
-
-        # load dynamics parameters
-        self.v_max = args.getfloat('v_max')
-        self.dt = args.getfloat('dt')
-        self.ddt = self.dt / 10.0
-
-        self._initialization_helper()
+    # def params_from_cfg(self, args):
+    #     """
+    #     Load experiment parameters from a configparser object
+    #     :param args: loaded configparser object
+    #     """
+    #     # number of robots and targets
+    #     self.n_targets = args.getint('n_targets')
+    #     self.n_targets_side = int(np.sqrt(self.n_targets))
+    #     self.n_robots = args.getint('n_robots')
+    #
+    #     # load graph parameters
+    #     self.comm_radius = args.getfloat('comm_radius')
+    #
+    #     # load dynamics parameters
+    #     self.v_max = args.getfloat('v_max')
+    #     self.dt = args.getfloat('dt')
+    #     self.ddt = self.dt / 10.0
+    #
+    #     self._initialization_helper()
 
     def _initialization_helper(self):
         """
         Initialization code that is needed after params are re-loaded
         """
-        # number of agents
+
+        self.y_min = 0
+        self.x_min = 0
+        self.x_max = 100
+        self.y_max = 100
+
+        # triangular lattice
+        lattice_vectors = [
+            2.75 * np.array([-1.44, -1.44]),
+            2.75 * np.array([-1.44, 1.44])]
+
+        # # square lattice
+        # lattice_vectors = [
+        #     np.array([-5.5, 0.]),
+        #     np.array([0., -5.5])]
+
+        spots = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), 2 * lattice_vectors)
+
+        obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+        spots = reject_collisions(spots, obstacles)
+
+        self.n_targets = np.shape(spots)[0]
+        # print(self.n_targets)
         self.n_agents = self.n_targets + self.n_robots
+        self.x = np.zeros((self.n_agents, self.nx))
+        self.x[self.n_robots:, 0:2] = spots
+
+        # number of agents
+
         self.max_edges = self.n_agents * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
         self.n_actions = N_ACTIONS
@@ -469,7 +497,7 @@ class MappingRadEnv(gym.Env):
         self.comm_radius2 = self.comm_radius * self.comm_radius
 
         # initialize state matrices
-        self.x = np.zeros((self.n_agents, self.nx))
+
         self.visited = np.ones((self.n_agents, 1))
         self.visited[self.np_random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
 
@@ -479,92 +507,9 @@ class MappingRadEnv(gym.Env):
         self.diff = np.zeros((self.n_agents, self.n_agents, self.nx))
         self.r2 = np.zeros((self.n_agents, self.n_agents))
 
-        if GRID:
-            # TODO get this working again
-            self.n_targets_side = int(np.sqrt(self.n_targets))
-            self.x_max = self.x_max_init * self.n_targets_side
-            self.y_max = self.y_max_init * self.n_targets_side
-            tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
-            tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side)
-            tx, ty = np.meshgrid(tempx, tempy)
-            self.x[self.n_robots:, 0] = tx.flatten()
-            self.x[self.n_robots:, 1] = ty.flatten()
-        else:
-            if SQUARE:
-                self.x_max = self.x_max_init * self.n_agents / 4
-                self.y_max = self.y_max_init * self.n_agents / 4
-                per_side = int(self.n_targets / 4)
-
-                targets = set()
-
-                # initialize fixed grid of targets
-                tempx = np.linspace(-self.x_max, -self.x_max, 1)
-                tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(self.x_max, self.x_max, 1)
-                tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-                tempy = np.linspace(self.y_max, self.y_max, 1)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-                tempy = np.linspace(-self.y_max, -self.y_max, 1)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-            else:
-                self.x_max = self.x_max_init * self.n_agents / 6
-                self.y_max = self.y_max_init * self.n_agents / 6
-
-                per_side = int(self.n_targets / 6)
-
-                targets = set()
-
-                # initialize fixed grid of targets
-                tempx = np.linspace(-self.x_max, -self.x_max, 1)
-                tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(self.x_max, self.x_max, 1)
-                tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(0, 0, 1)
-                tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-                tempy = np.linspace(self.y_max, self.y_max, 1)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-                tempy = np.linspace(-self.y_max, -self.y_max, 1)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-                tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
-                tempy = np.linspace(0, 0, 1)
-                tx, ty = np.meshgrid(tempx, tempy)
-                targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-            targets.add((self.x_max, self.y_max))
-
-            targets = list(zip(*targets))
-
-            self.x[self.n_robots:, 0] = targets[0]
-            self.x[self.n_robots:, 1] = targets[1]
-
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2], self_loops=True)
+
+        # self.motion_edges, self.motion_dist = self._get_k_edges(self.n_actions + 1, self.x[self.n_robots:, 0:2], self_loops=True)
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
 
         # problem's observation and action spaces
