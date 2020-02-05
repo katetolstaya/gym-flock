@@ -93,6 +93,96 @@ def reject_collisions(points, obstacles):
 
     return points[flag, :]
 
+def gen_square(env):
+    env.x_max = env.x_max_init * env.n_agents / 4
+    env.y_max = env.y_max_init * env.n_agents / 4
+    per_side = int(env.n_targets / 4)
+
+    targets = set()
+
+    # initialize fixed grid of targets
+    tempx = np.linspace(-env.x_max, -env.x_max, 1)
+    tempy = np.linspace(-env.y_max, env.y_max, per_side, endpoint=False)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(env.x_max, env.x_max, 1)
+    tempy = np.linspace(-env.y_max, env.y_max, per_side, endpoint=False)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(-env.x_max, env.x_max, per_side, endpoint=False)
+    tempy = np.linspace(env.y_max, env.y_max, 1)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(-env.x_max, env.x_max, per_side, endpoint=False)
+    tempy = np.linspace(-env.y_max, -env.y_max, 1)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+    targets.add((env.x_max, env.y_max))
+
+    targets = list(zip(*targets))
+
+    env.x[env.n_robots:, 0] = targets[0]
+    env.x[env.n_robots:, 1] = targets[1]
+
+def gen_grid(env):
+    env.n_targets_side = int(np.sqrt(env.n_targets))
+    env.x_max = env.x_max_init * env.n_targets_side
+    env.y_max = env.y_max_init * env.n_targets_side
+    tempx = np.linspace(-1.0 * env.x_max, env.x_max, env.n_targets_side)
+    tempy = np.linspace(-1.0 * env.y_max, env.y_max, env.n_targets_side)
+    tx, ty = np.meshgrid(tempx, tempy)
+    env.x[env.n_robots:, 0] = tx.flatten()
+    env.x[env.n_robots:, 1] = ty.flatten()
+
+def gen_sparse_grid(env):
+    env.x_max = env.x_max_init * env.n_agents / 6
+    env.y_max = env.y_max_init * env.n_agents / 6
+
+    per_side = int(env.n_targets / 6)
+
+    targets = set()
+
+    # initialize fixed grid of targets
+    tempx = np.linspace(-env.x_max, -env.x_max, 1)
+    tempy = np.linspace(-env.y_max, env.y_max, per_side, endpoint=False)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(env.x_max, env.x_max, 1)
+    tempy = np.linspace(-env.y_max, env.y_max, per_side, endpoint=False)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(0, 0, 1)
+    tempy = np.linspace(-env.y_max + env.y_max_init, env.y_max, per_side, endpoint=False)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(-env.x_max, env.x_max, per_side, endpoint=False)
+    tempy = np.linspace(env.y_max, env.y_max, 1)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(-env.x_max, env.x_max, per_side, endpoint=False)
+    tempy = np.linspace(-env.y_max, -env.y_max, 1)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    tempx = np.linspace(-env.x_max + env.x_max_init, env.x_max, per_side, endpoint=False)
+    tempy = np.linspace(0, 0, 1)
+    tx, ty = np.meshgrid(tempx, tempy)
+    targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
+
+    targets.add((env.x_max, env.y_max))
+
+    targets = list(zip(*targets))
+
+    env.x[env.n_robots:, 0] = targets[0]
+    env.x[env.n_robots:, 1] = targets[1]
+
 
 if __name__ == "__main__":
     # test generate_lattice() and reject_collisions()

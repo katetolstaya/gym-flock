@@ -16,43 +16,28 @@ try:
 except ImportError:
     tf = None
 
-
 font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-N_TARGETS = 123
-N_ROBOTS = 1
-N_ACTIONS = 4
+# number of node and edge features
+N_NODE_FEAT = 2
+N_EDGE_FEAT = 1
+
+# padding for a variable number of graph edges
 MAX_EDGES = 5
-N_ACTIVE_TARGETS = 60
 
-# N_TARGETS = 36
-# N_ROBOTS = 1
-# N_ACTIONS = 2
-# MAX_EDGES = 10
-# N_ACTIVE_TARGETS = 10
-# GRID = False
-# SQUARE = True
-
-# N_TARGETS = 900
-# N_ROBOTS = 10
-# N_ACTIONS = 15
-# MAX_EDGES = 15
-# N_ACTIVE_TARGETS = 200
-# GRID = True
-
-CIRCLES = True
+# number of edges/actions for each robot, fixed
+N_ACTIONS = 4
 
 # GRID = 0
 # SQUARE = 1
 # SPARSE_GRID = 2
-#
 # MAP_TYPE = GRID
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, n_robots=3, frac_active_targets=0.5):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -67,13 +52,13 @@ class MappingRadEnv(gym.Env):
         self.nu = 2
 
         # number of robots and targets
-        self.n_targets = N_TARGETS
-        # self.n_targets_side = int(np.sqrt(self.n_targets))
-        self.n_robots = N_ROBOTS
+        self.n_robots = n_robots
+        self.frac_active_targets = frac_active_targets
 
         # dynamics parameters
         self.dt = 2.0
-        self.ddt = self.dt / 10.0
+        self.n_steps = 5
+        self.ddt = self.dt / self.n_steps
         self.v_max = 3.0  # max velocity
         self.a_max = 3.0  # max acceleration
         self.action_gain = 1.0  # controller gain
@@ -120,14 +105,7 @@ class MappingRadEnv(gym.Env):
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
         u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
-        # # project onto the nearest 5 edges
-        # n_nearby_nodes = 10
-        # mov_edges, _ = self._get_k_edges(n_nearby_nodes, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
-        # r = np.linalg.norm(self.x[u_ind, 0:2].reshape((self.n_robots, 1, 2))
-        #                    - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
-        # u_ind = np.argmin(np.reshape(r[mov_edges], (N_ROBOTS, n_nearby_nodes)), axis=1)
-
-        for _ in range(10):
+        for _ in range(self.n_steps):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
             u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
@@ -160,15 +138,11 @@ class MappingRadEnv(gym.Env):
         reward - MDP reward at this step
         done - is this the last step of the episode?
         """
-        # movement edges from robots to K random landmarks
-        # mov_edges, mov_dist = self._get_k_random_edges(self.np_random, self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+
         mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
-        # print(len(mov_edges[0]))
-        # print(N_ACTIONS)
-        # print(self.n_robots)
-        assert len(mov_edges[0]) == N_ACTIONS * self.n_robots
+        assert len(mov_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
 
         # communication edges among robots
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
@@ -176,12 +150,6 @@ class MappingRadEnv(gym.Env):
         # observation edges from robots to nearby landmarks
         obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],  self.x[self.n_robots:, 0:2])
         obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
-
-        # sensor edges from targets to nearby robots
-        # sensor_edges, _ = self._get_graph_edges(self.obs_radius,
-        #                                             self.x[self.n_robots:, 0:2], self.x[:self.n_robots, 0:2])
-        # sensor_edges[0] += self.n_robots
-        # update target visitation
 
         self.visited[obs_edges[1]] = 1
         reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
@@ -192,14 +160,11 @@ class MappingRadEnv(gym.Env):
         receivers = np.concatenate((obs_edges[1], mov_edges[0], comm_edges[1], self.motion_edges[1]))
         edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
 
-        # edges = 1.0/(edges + 0.1)
-        # edges.fill(1.0)
-
         # -1 indicates unused edges
         self.senders.fill(-1)
         self.receivers.fill(-1)
 
-        assert len(senders) <= np.shape(self.senders)[0]
+        assert len(senders) <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         self.senders[:len(senders)] = senders
         self.receivers[:len(receivers)] = receivers
@@ -212,13 +177,6 @@ class MappingRadEnv(gym.Env):
 
         return obs, reward, done
 
-    def get_visitation(self, pos, visited):
-        # observation edges from robots to nearby landmarks
-        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, pos[:self.n_robots, 0:2],  pos[self.n_robots:, 0:2])
-        obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
-        visited[obs_edges[1]] = 1
-        return visited
-
     def reset(self):
         """
         Reset system state. Agents are initialized in a square with side self.r_max
@@ -227,11 +185,11 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        self.x[:self.n_robots, 0:2] = self.x[self.np_random.choice(self.n_targets, size=(self.n_robots,))+self.n_robots,0:2]
+        self.x[:self.n_robots, 0:2] = self.x[self.np_random.choice(self.n_targets, size=(self.n_robots,))+self.n_robots, 0:2]
         self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5*self.motion_radius, high=0.5*self.motion_radius, size=(self.n_robots, 2))
 
         self.visited.fill(1)
-        self.visited[self.np_random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),), replace=False)+self.n_robots] = 0
 
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -256,12 +214,13 @@ class MappingRadEnv(gym.Env):
         else:
             return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
 
-    def render(self, mode='human'):
+    def render(self, mode='human', plot_circles=True):
         """
         Render the environment with agents as points in 2D space. The robots are in green, the targets in red.
         When a target has been visited, it becomes a blue dot. The plot objects are created on the first render() call and persist between
         calls of this function.
         :param mode: 'human' mode renders the environment, and nothing happens otherwise
+        :param plot_circles: flag that determines if circles are plotted to show map range
         """
         if mode is not 'human':
             return
@@ -277,7 +236,7 @@ class MappingRadEnv(gym.Env):
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
-            if CIRCLES:
+            if plot_circles:
                 for (x, y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
                     circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
                     self.ax.add_patch(circle)
@@ -437,9 +396,8 @@ class MappingRadEnv(gym.Env):
         self.comm_radius2 = self.comm_radius * self.comm_radius
 
         # initialize state matrices
-
         self.visited = np.ones((self.n_agents, 1))
-        self.visited[self.np_random.choice(self.n_targets, size=(N_ACTIVE_TARGETS,), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),), replace=False)+self.n_robots] = 0
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
@@ -448,7 +406,6 @@ class MappingRadEnv(gym.Env):
         self.r2 = np.zeros((self.n_agents, self.n_agents))
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2], self_loops=True)
-
         # self.motion_edges, self.motion_dist = self._get_k_edges(self.n_actions + 1, self.x[self.n_robots:, 0:2], self_loops=True)
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
 
@@ -460,17 +417,19 @@ class MappingRadEnv(gym.Env):
 
         self.observation_space = gym.spaces.Dict(
             [
-                ("nodes", Box(shape=(self.n_agents, 2), low=-np.Inf, high=np.Inf, dtype=np.float32)),
-                ("edges", Box(shape=(self.max_edges, 1), low=-np.Inf, high=np.Inf, dtype=np.float32)),
+                ("nodes", Box(shape=(self.n_agents, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)),
+                ("edges", Box(shape=(self.max_edges, N_EDGE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)),
                 ("senders", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
                 ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
             ]
         )
 
     @staticmethod
-    def unpack_obs(obs):
+    def unpack_obs(obs, ob_space):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
-        n_nodes = N_ROBOTS + N_TARGETS
+
+        # assume flattened box
+        n_nodes = ob_space.shape[0] // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = 1
@@ -513,92 +472,3 @@ class MappingRadEnv(gym.Env):
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
 
-    def gen_square(self):
-        self.x_max = self.x_max_init * self.n_agents / 4
-        self.y_max = self.y_max_init * self.n_agents / 4
-        per_side = int(self.n_targets / 4)
-
-        targets = set()
-
-        # initialize fixed grid of targets
-        tempx = np.linspace(-self.x_max, -self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(self.x_max, self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(self.y_max, self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(-self.y_max, -self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-        targets.add((self.x_max, self.y_max))
-
-        targets = list(zip(*targets))
-
-        self.x[self.n_robots:, 0] = targets[0]
-        self.x[self.n_robots:, 1] = targets[1]
-
-    def gen_grid(self):
-        self.n_targets_side = int(np.sqrt(self.n_targets))
-        self.x_max = self.x_max_init * self.n_targets_side
-        self.y_max = self.y_max_init * self.n_targets_side
-        tempx = np.linspace(-1.0 * self.x_max, self.x_max, self.n_targets_side)
-        tempy = np.linspace(-1.0 * self.y_max, self.y_max, self.n_targets_side)
-        tx, ty = np.meshgrid(tempx, tempy)
-        self.x[self.n_robots:, 0] = tx.flatten()
-        self.x[self.n_robots:, 1] = ty.flatten()
-
-    def gen_sparse_grid(self):
-        self.x_max = self.x_max_init * self.n_agents / 6
-        self.y_max = self.y_max_init * self.n_agents / 6
-
-        per_side = int(self.n_targets / 6)
-
-        targets = set()
-
-        # initialize fixed grid of targets
-        tempx = np.linspace(-self.x_max, -self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(self.x_max, self.x_max, 1)
-        tempy = np.linspace(-self.y_max, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(0, 0, 1)
-        tempy = np.linspace(-self.y_max + self.y_max_init, self.y_max, per_side, endpoint=False)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(self.y_max, self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(-self.x_max, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(-self.y_max, -self.y_max, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        tempx = np.linspace(-self.x_max + self.x_max_init, self.x_max, per_side, endpoint=False)
-        tempy = np.linspace(0, 0, 1)
-        tx, ty = np.meshgrid(tempx, tempy)
-        targets = targets.union(set(zip(tx.flatten(), ty.flatten())))
-
-        targets.add((self.x_max, self.y_max))
-
-        targets = list(zip(*targets))
-
-        self.x[self.n_robots:, 0] = targets[0]
-        self.x[self.n_robots:, 1] = targets[1]
