@@ -30,6 +30,7 @@ MAX_EDGES = 5
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
 
+
 # GRID = 0
 # SQUARE = 1
 # SPARSE_GRID = 2
@@ -37,7 +38,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=3, frac_active_targets=0.75):
+    def __init__(self, n_robots=1, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -139,7 +140,8 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
 
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+                                                self.x[self.n_robots:, 0:2])
         mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
         self.mov_edges = mov_edges
         assert len(mov_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
@@ -148,7 +150,8 @@ class MappingRadEnv(gym.Env):
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
         # observation edges from robots to nearby landmarks
-        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],  self.x[self.n_robots:, 0:2])
+        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
+                                                    self.x[self.n_robots:, 0:2])
         obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
 
         self.visited[obs_edges[1]] = 1
@@ -185,11 +188,14 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        self.x[:self.n_robots, 0:2] = self.x[self.np_random.choice(self.n_targets, size=(self.n_robots,))+self.n_robots, 0:2]
-        self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5*self.motion_radius, high=0.5*self.motion_radius, size=(self.n_robots, 2))
+        self.x[:self.n_robots, 0:2] = self.x[
+                                      self.np_random.choice(self.n_targets, size=(self.n_robots,)) + self.n_robots, 0:2]
+        self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
+                                                              high=0.5 * self.motion_radius, size=(self.n_robots, 2))
 
         self.visited.fill(1)
-        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
+                                           replace=False) + self.n_robots] = 0
 
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -232,7 +238,8 @@ class MappingRadEnv(gym.Env):
             self.ax = fig.add_subplot(111)
 
             # plot robots and targets and visited targets as scatter plot
-            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'go')
+            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'mo', markersize=12,
+                                  linewidth=0)
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
             line3, = self.ax.plot([], [], 'b.')
 
@@ -333,7 +340,7 @@ class MappingRadEnv(gym.Env):
 
         # idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
 
-        idx = np.argpartition(r, k, axis=1)[:, 0:k+1]
+        idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
         mask = np.zeros(np.shape(r))
         mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
         # remove the closest edge
@@ -355,6 +362,9 @@ class MappingRadEnv(gym.Env):
         self.x_max = 100 / 2
         self.y_max = 100 / 2
 
+        # self.x_max = 100
+        # self.y_max = 100
+
         # # triangular lattice
         # lattice_vectors = [
         #     2.75  * np.array([-1.414, -1.414]),
@@ -365,9 +375,11 @@ class MappingRadEnv(gym.Env):
             np.array([-5.5, 0.]),
             np.array([0., -5.5])]
 
-        spots = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), 2 * lattice_vectors)
+        spots = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), lattice_vectors)
 
-        obstacles = [(10 / 2, 45 / 2, 10 / 2 , 90/ 2), (55/2, 90/2, 10/2, 90/2)]
+        # obstacles = []
+        # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+        obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
         spots = reject_collisions(spots, obstacles)
 
         self.n_targets = np.shape(spots)[0]
@@ -397,7 +409,8 @@ class MappingRadEnv(gym.Env):
 
         # initialize state matrices
         self.visited = np.ones((self.n_agents, 1))
-        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),), replace=False)+self.n_robots] = 0
+        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
+                                           replace=False) + self.n_robots] = 0
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
@@ -405,7 +418,8 @@ class MappingRadEnv(gym.Env):
         self.diff = np.zeros((self.n_agents, self.n_agents, self.nx))
         self.r2 = np.zeros((self.n_agents, self.n_agents))
 
-        self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2], self_loops=True)
+        self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
+                                                                    self_loops=True)
         # self.motion_edges, self.motion_dist = self._get_k_edges(self.n_actions + 1, self.x[self.n_robots:, 0:2], self_loops=True)
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
 
@@ -471,4 +485,3 @@ class MappingRadEnv(gym.Env):
         globs = tf.fill((batch_size, 1), 0.0)
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
-

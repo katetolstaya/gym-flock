@@ -2,27 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def sample_free_space(free_region, obstacles, n_points):
-    """
-    Sample uniformly at random points from the free region, rejecting points that are within obstacle regions
-    :param free_region: tuple (xmin, xmax, ymin, ymax)
-    :param obstacles: list of rectangular obstacles [(xmin, xmax, ymin, ymax)]
-    :param n_points: number of points to sample
-    :return: List[(x, y)] of sampled points
-    """
-
-    # sample points from the free region
-    (xmin, xmax, ymin, ymax) = free_region
-    points = np.random.uniform(low=[xmin, ymin], high=[xmax, ymax], size=(n_points, 2))
-
-    # re-sample if point within obstacle
-    for i in range(n_points):
-        while in_obstacle(obstacles, points[i, 0], points[i, 1]):
-            points[i, :] = np.random.uniform(low=[xmin, ymin], high=[xmax, ymax], size=(1, 2))
-
-    return points
-
-
 def in_obstacle(obstacles, px, py):
     """
     Check if query point is within any of the rectangular obstacles
@@ -46,7 +25,7 @@ def generate_lattice(free_region, lattice_vectors):
     :return:
     """
     (xmin, xmax, ymin, ymax) = free_region
-    image_shape = np.array([xmax-xmin, ymax-ymin])
+    image_shape = np.array([xmax - xmin, ymax - ymin])
     center_pix = image_shape // 2
     # Get the lower limit on the cell size.
     dx_cell = max(abs(lattice_vectors[0][0]), abs(lattice_vectors[1][0]))
@@ -77,13 +56,16 @@ def generate_lattice(free_region, lattice_vectors):
     return out
 
 
-def reject_collisions(points, obstacles):
+def reject_collisions(points, obstacles=None):
     """
 
     :param points:
     :param obstacles:
     :return:
     """
+    if obstacles is None or len(obstacles) is 0:
+        return points
+
     # remove points within obstacle
     n_points = np.shape(points)[0]
     flag = np.ones((n_points,), dtype=np.bool)
@@ -92,6 +74,7 @@ def reject_collisions(points, obstacles):
             flag[i] = False
 
     return points[flag, :]
+
 
 def gen_square(env):
     env.x_max = env.x_max_init * env.n_agents / 4
@@ -127,6 +110,7 @@ def gen_square(env):
     env.x[env.n_robots:, 0] = targets[0]
     env.x[env.n_robots:, 1] = targets[1]
 
+
 def gen_grid(env):
     env.n_targets_side = int(np.sqrt(env.n_targets))
     env.x_max = env.x_max_init * env.n_targets_side
@@ -136,6 +120,7 @@ def gen_grid(env):
     tx, ty = np.meshgrid(tempx, tempy)
     env.x[env.n_robots:, 0] = tx.flatten()
     env.x[env.n_robots:, 1] = ty.flatten()
+
 
 def gen_sparse_grid(env):
     env.x_max = env.x_max_init * env.n_agents / 6
@@ -198,7 +183,7 @@ if __name__ == "__main__":
     #     np.array([0., -4.0])]
 
     free_region = (0, 100, 0, 100)
-    spots = generate_lattice(free_region, 2 * lattice_vectors)
+    spots = generate_lattice(free_region, lattice_vectors)
 
     obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
     spots = reject_collisions(spots, obstacles)
