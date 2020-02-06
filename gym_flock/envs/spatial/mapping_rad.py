@@ -38,7 +38,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=1, frac_active_targets=0.75):
+    def __init__(self, n_robots=3, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -359,13 +359,18 @@ class MappingRadEnv(gym.Env):
 
         self.y_min = 0
         self.x_min = 0
-        self.x_max = 100 / 2
-        self.y_max = 100 / 2
 
-        # self.x_max = 100
-        # self.y_max = 100
+        # self.x_max = 100 / 2
+        # self.y_max = 100 / 2
+        # obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
 
-        # # triangular lattice
+        self.x_max = 100
+        self.y_max = 100
+        obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+
+        obstacles = []
+
+        # triangular lattice
         # lattice_vectors = [
         #     2.75  * np.array([-1.414, -1.414]),
         #     2.75  * np.array([-1.414, 1.414])]
@@ -375,18 +380,13 @@ class MappingRadEnv(gym.Env):
             np.array([-5.5, 0.]),
             np.array([0., -5.5])]
 
-        spots = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), lattice_vectors)
+        targets = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), lattice_vectors)
+        targets = reject_collisions(targets, obstacles)
 
-        # obstacles = []
-        # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
-        obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-        spots = reject_collisions(spots, obstacles)
-
-        self.n_targets = np.shape(spots)[0]
-        # print(self.n_targets)
+        self.n_targets = np.shape(targets)[0]
         self.n_agents = self.n_targets + self.n_robots
         self.x = np.zeros((self.n_agents, self.nx))
-        self.x[self.n_robots:, 0:2] = spots
+        self.x[self.n_robots:, 0:2] = targets
 
         # if MAP_TYPE == GRID:
         #     self.gen_grid()

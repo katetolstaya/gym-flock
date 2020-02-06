@@ -2,6 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def construct_dist_matrix(edges, edge_cost=1.0):
+    # Edges are provided as (sender, receiver), with time = 1 assumed
+    n_nodes = int(max(max(edges[0]), max(edges[1])) + 1)
+
+    time_matrix = np.ones((n_nodes, n_nodes)) * np.Inf
+
+    # assume we've received a connected graph here
+    np.fill_diagonal(time_matrix, 0.0)
+
+    while np.sum(time_matrix) == np.Inf:
+        for i, (sender, receiver) in enumerate(zip(edges[0], edges[1])):
+            for new_node in range(n_nodes):
+                new_cost = time_matrix[new_node, sender] + edge_cost
+                if new_cost < time_matrix[new_node, receiver]:
+                    time_matrix[new_node, receiver] = new_cost
+    return time_matrix
+    
+
 def in_obstacle(obstacles, px, py):
     """
     Check if query point is within any of the rectangular obstacles
