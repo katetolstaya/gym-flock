@@ -37,7 +37,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=1, frac_active_targets=0.75):
+    def __init__(self, n_robots=3, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
