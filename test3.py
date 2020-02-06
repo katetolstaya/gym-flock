@@ -1,6 +1,5 @@
 import gym
 import gym_flock
-from gym_flock.envs.spatial.make_map import construct_dist_matrix
 import numpy as np
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
@@ -9,7 +8,34 @@ import time
 penalty_multiplier = 1000
 
 
+def construct_time_matrix(edges, edge_time=1.0):
+    """
+    Compute the distance between all pairs of nodes in the graph
+    :param edges: list of edges provided as (sender, receiver)
+    :param edge_time: uniform edge cost, assumed to be 1.0
+    :return:
+    """
+    n_nodes = int(max(max(edges[0]), max(edges[1])) + 1)
+    time_matrix = np.ones((n_nodes, n_nodes)) * np.Inf
+    np.fill_diagonal(time_matrix, 0.0)
+
+    changed_last_iter = True  # prevents looping forever in disconnected graphs
+
+    while changed_last_iter and np.sum(time_matrix) == np.Inf:
+        changed_last_iter = False
+        for i, (sender, receiver) in enumerate(zip(edges[0], edges[1])):
+            new_cost = np.minimum(time_matrix[:, sender] + edge_time, time_matrix[:, receiver])
+            changed_last_iter = changed_last_iter or (not np.array_equal(new_cost, time_matrix[:, receiver]))
+            time_matrix[:, receiver] = new_cost
+
+    return time_matrix
+
+
 def create_data_model():
+    """
+    Formulate the vehicle routing problem corresponding to the MappingRad env to generate the expert solution
+    :return: Dict containing the problem parameters
+    """
     data = {}
     # Initialize the gym environment
     env_name = "MappingRad-v0"
@@ -20,6 +46,8 @@ def create_data_model():
     ep_length = env._max_episode_steps
     env = env.env
 
+    print('Number of targets: ' + str(env.n_targets))
+
     # get visitation of nodes
     penalty = np.logical_not(env.visited) * penalty_multiplier
     penalty = np.append(penalty, [0.0])
@@ -28,7 +56,7 @@ def create_data_model():
     # get map edges from env
     motion_edges = (env.motion_edges[0] - env.n_robots, env.motion_edges[1] - env.n_robots)
     t0 = time.time()
-    dist_mat = construct_dist_matrix(motion_edges)
+    dist_mat = construct_time_matrix(motion_edges)
     t1 = time.time()
     print('Time to construct the adjacency matrix ' + str(t1 - t0))
     # add depot at index env.n_targets

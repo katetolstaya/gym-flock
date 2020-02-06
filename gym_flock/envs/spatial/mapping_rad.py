@@ -38,7 +38,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=3, frac_active_targets=0.75):
+    def __init__(self, n_robots=12, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -364,9 +364,9 @@ class MappingRadEnv(gym.Env):
         # self.y_max = 100 / 2
         # obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
 
-        self.x_max = 100
-        self.y_max = 100
-        obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+        self.x_max = 120
+        self.y_max = 120
+        # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
 
         obstacles = []
 
