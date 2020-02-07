@@ -37,16 +37,13 @@ def create_data_model():
     :return: Dict containing the problem parameters
     """
     data = {}
+
     # Initialize the gym environment
     env_name = "MappingRad-v0"
-    t0 = time.time()
     env = gym.make(env_name)
-    t1 = time.time()
-    print('Time to construct the environment ' + str(t1 - t0))
-    ep_length = env._max_episode_steps
+    data['episode_length'] = env._max_episode_steps
     env = env.env
-
-    print('Number of targets: ' + str(env.n_targets))
+    init_loc = env.nearest_landmarks
 
     # get visitation of nodes
     penalty = np.logical_not(env.visited) * penalty_multiplier
@@ -55,19 +52,25 @@ def create_data_model():
 
     # get map edges from env
     motion_edges = (env.motion_edges[0] - env.n_robots, env.motion_edges[1] - env.n_robots)
-    t0 = time.time()
     dist_mat = construct_time_matrix(motion_edges)
-    t1 = time.time()
-    print('Time to construct the adjacency matrix ' + str(t1 - t0))
-    # add depot at index env.n_targets
-    dist_mat = np.vstack((np.zeros((1, env.n_targets)), dist_mat))
-    dist_mat = np.hstack((np.zeros((env.n_targets + 1, 1)), dist_mat))
+
+    # add depot at index env.n_targets with distance = 0 to/from all nodes
+    from_depot = np.ones((1, env.n_targets)) * 1000.0
+    from_depot[:, init_loc] = 0.0
+
+    to_depot = np.zeros((env.n_targets + 1, 1))
+
+    dist_mat = np.vstack((from_depot, dist_mat))
+    dist_mat = np.hstack((to_depot, dist_mat))
     data['time_matrix'] = dist_mat
 
-    time_window = (0, ep_length)
-    data['time_windows'] = [time_window] * (env.n_targets + 1)
     data['num_vehicles'] = env.n_robots
+    data['init_loc'] = init_loc + 1
     data['depot'] = 0
+
+    print('Number of robots: ' + str(env.n_robots))
+    print('Number of targets: ' + str(env.n_targets))
+    print('Initial locations: ' + str(data['init_loc']))
     return data
 
 
@@ -75,22 +78,30 @@ def print_solution(data, manager, routing, assignment):
     """Prints assignment on console."""
 
     # Display dropped nodes.
-    # dropped_nodes = 'Dropped nodes:'
-    n_dropped = 0
+    dropped_nodes = []
     for node in range(routing.Size()):
         if routing.IsStart(node) or routing.IsEnd(node):
             continue
         if assignment.Value(routing.NextVar(node)) == node:
-            # dropped_nodes += ' {}'.format(manager.IndexToNode(node))
-            n_dropped += 1
-    # print(dropped_nodes)
-    print('Total number of dropped nodes: ' + str(n_dropped))
+            dropped_nodes.append(manager.IndexToNode(node))
+    penalty = int(np.sum(data['penalties'][dropped_nodes]) / penalty_multiplier)
+    num_unvisited = int(np.sum(data['penalties']) / penalty_multiplier)
+    print('Number of nodes dropped: ' + str(len(dropped_nodes)))
+    print('Number of unvisited nodes dropped: ' + str(penalty) + ' out of ' + str(num_unvisited))
 
     time_dimension = routing.GetDimensionOrDie('Time')
     total_time = 0
+    first_locs = []
     for vehicle_id in range(data['num_vehicles']):
         index = routing.Start(vehicle_id)
         plan_output = 'Route for vehicle {}:\n'.format(vehicle_id)
+
+        # check conditions on first stops
+        first_loc = assignment.Value(routing.NextVar(index))
+        assert first_loc in data['init_loc'], 'First stop is not an initial position'
+        assert first_loc not in first_locs, 'First stop is not unique'
+        first_locs.append(first_loc)
+
         while not routing.IsEnd(index):
             time_var = time_dimension.CumulVar(index)
             plan_output += '{0} Time({1},{2}) -> '.format(
@@ -113,7 +124,6 @@ def main():
     # Instantiate the data problem.
     data = create_data_model()
 
-    t0 = time.time()
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
                                            data['num_vehicles'], data['depot'])
@@ -137,22 +147,12 @@ def main():
     time_str = 'Time'
     routing.AddDimension(
         transit_callback_index,
-        30,  # allow waiting time
-        30,  # maximum time per vehicle
+        data['episode_length'],  # allow waiting time
+        data['episode_length'],  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
     time_dimension = routing.GetDimensionOrDie(time_str)
-    # Add time window constraints for each location except depot.
-    for location_idx, time_window in enumerate(data['time_windows']):
-        if location_idx == 0:
-            continue
-        index = manager.NodeToIndex(location_idx)
-        time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-    # Add time window constraints for each vehicle start node.
-    for vehicle_id in range(data['num_vehicles']):
-        index = routing.Start(vehicle_id)
-        time_dimension.CumulVar(index).SetRange(data['time_windows'][0][0],
-                                                data['time_windows'][0][1])
+
     for i in range(data['num_vehicles']):
         routing.AddVariableMinimizedByFinalizer(
             time_dimension.CumulVar(routing.Start(i)))
@@ -169,19 +169,21 @@ def main():
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
 
-    t1 = time.time()
-    print('Time to set up the problem ' + str(t1 - t0))
+    # Anytime search parameters:
+    # search_parameters.time_limit.seconds = 30
+    # search_parameters.solution_limit = 100
 
     # Solve the problem.
 
     t0 = time.time()
     assignment = routing.SolveWithParameters(search_parameters)
     t1 = time.time()
-    print('Time to solve the problem ' + str(t1 - t0))
 
     # Print solution on console.
     if assignment:
         print_solution(data, manager, routing, assignment)
+
+    print('Time to solve the problem ' + str(t1 - t0))
 
 
 if __name__ == '__main__':

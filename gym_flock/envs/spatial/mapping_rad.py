@@ -38,7 +38,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=12, frac_active_targets=0.75):
+    def __init__(self, n_robots=10, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -188,8 +188,8 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        self.x[:self.n_robots, 0:2] = self.x[
-                                      self.np_random.choice(self.n_targets, size=(self.n_robots,)) + self.n_robots, 0:2]
+        self.nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        self.x[:self.n_robots, 0:2] = self.x[self.nearest_landmarks + self.n_robots, 0:2]
         self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
                                                               high=0.5 * self.motion_radius, size=(self.n_robots, 2))
 
@@ -364,8 +364,8 @@ class MappingRadEnv(gym.Env):
         # self.y_max = 100 / 2
         # obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
 
-        self.x_max = 120
-        self.y_max = 120
+        self.x_max = 200
+        self.y_max = 200
         # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
 
         obstacles = []
@@ -394,6 +394,8 @@ class MappingRadEnv(gym.Env):
         #     self.gen_square()
         # elif MAP_TYPE == SPARSE_GRID:
         #     self.gen_sparse_grid()
+
+        self.nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
 
         self.max_edges = self.n_agents * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
