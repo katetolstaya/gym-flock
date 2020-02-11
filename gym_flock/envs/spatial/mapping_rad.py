@@ -372,9 +372,9 @@ class MappingRadEnv(gym.Env):
 
         self.x_max = 100
         self.y_max = 100
-        # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+        obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
 
-        obstacles = []
+        # obstacles = []
 
         # triangular lattice
         # lattice_vectors = [
