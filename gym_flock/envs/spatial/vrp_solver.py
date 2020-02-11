@@ -64,9 +64,6 @@ def create_data_model(env):
     data['init_loc'] = init_loc + 1
     data['depot'] = 0
 
-    print('Number of robots: ' + str(env.n_robots))
-    print('Number of targets: ' + str(env.n_targets))
-    print('Initial locations: ' + str(data['init_loc']))
     return data
 
 

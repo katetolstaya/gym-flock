@@ -36,7 +36,7 @@ N_EDGE_FEAT = 1
 MAX_EDGES = 5
 
 # number of edges/actions for each robot, fixed
-N_ACTIONS = 6
+N_ACTIONS = 4
 ALLOW_STAY = False
 
 
@@ -512,20 +512,15 @@ class MappingRadEnv(gym.Env):
 
         else:
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
-            print(self.closest_targets)
             if self.cached_solution is None:
                 self.cached_solution = solve_vrp(self)
-
-            print(self.cached_solution)
 
             curr_loc = self.closest_targets
             for i in range(self.n_robots):
                 if len(self.cached_solution[i]) > 1 and curr_loc[i] == self.cached_solution[i][0]:
                     self.cached_solution[i] = self.cached_solution[i][1:]
 
-            print(self.cached_solution)
             next_loc = [ls[0] for ls in self.cached_solution]
-            print(next_loc)
 
             r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
                                - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
