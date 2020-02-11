@@ -37,7 +37,7 @@ MAX_EDGES = 5
 
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
-ALLOW_STAY = False
+ALLOW_STAY = True
 
 
 # GRID = 0
