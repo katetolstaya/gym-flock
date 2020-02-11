@@ -83,6 +83,7 @@ class MappingRadEnv(gym.Env):
         self.comm_radius = 6.0
         self.motion_radius = 6.0
         self.obs_radius = 6.0
+        self.sensor_radius = 2.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -164,7 +165,12 @@ class MappingRadEnv(gym.Env):
                                                     self.x[self.n_robots:, 0:2])
         obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
 
-        self.visited[obs_edges[1]] = 1
+        # observation edges from robots to nearby landmarks
+        sensor_edges, _ = self._get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
+                                                    self.x[self.n_robots:, 0:2])
+        sensor_edges = (sensor_edges[0], sensor_edges[1] + self.n_robots)
+
+        self.visited[sensor_edges[1]] = 1
         reward = np.sum(self.visited[self.n_robots:]) - self.n_targets
         done = np.sum(self.visited[self.n_robots:]) == self.n_targets
 
