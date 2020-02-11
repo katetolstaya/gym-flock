@@ -10,11 +10,19 @@ from collections import OrderedDict
 from gym.spaces import Box
 
 from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions
+from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
 try:
     import tensorflow as tf
 except ImportError:
     tf = None
+
+try:
+    import ortools
+    from ortools.constraint_solver import routing_enums_pb2
+    from ortools.constraint_solver import pywrapcp
+except ImportError:
+    ortools = None
 
 font = {'family': 'sans-serif',
         'weight': 'bold',
@@ -28,7 +36,8 @@ N_EDGE_FEAT = 1
 MAX_EDGES = 5
 
 # number of edges/actions for each robot, fixed
-N_ACTIONS = 4
+N_ACTIONS = 6
+ALLOW_STAY = False
 
 
 # GRID = 0
@@ -38,7 +47,7 @@ N_ACTIONS = 4
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=10, frac_active_targets=0.75):
+    def __init__(self, n_robots=5, frac_active_targets=0.75):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -85,6 +94,7 @@ class MappingRadEnv(gym.Env):
         self.line1 = None
         self.line2 = None
         self.line3 = None
+        self.cached_solution = None
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -188,37 +198,24 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        self.nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
-        self.x[:self.n_robots, 0:2] = self.x[self.nearest_landmarks + self.n_robots, 0:2]
+        nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
         self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
                                                               high=0.5 * self.motion_radius, size=(self.n_robots, 2))
 
         self.visited.fill(1)
         self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
                                            replace=False) + self.n_robots] = 0
-
+        self.cached_solution = None
         obs, _, _ = self._get_obs_reward()
         return obs
 
-    def controller(self, random=False):
-        """
-        Greedy controller picks the nearest unvisited target
-        :return: control action for each robot (global index of agent chosen)
-        """
-        if not random:
-            # get closest unvisited
-            r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                               - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-            r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
-
-            # get the closest neighbor to the unvisited target
-            min_unvisited = np.argmin(r, axis=1) + self.n_robots
-            r = np.linalg.norm(self.x[min_unvisited, 0:2].reshape((self.n_robots, 1, 2))
-                               - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
-            action = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
-            return action
-        else:
-            return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
+    @property
+    def closest_targets(self):
+        r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
+                           - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
+        closest_targets = np.argmin(r, axis=1) + self.n_robots
+        return closest_targets
 
     def render(self, mode='human', plot_circles=True):
         """
@@ -338,14 +335,17 @@ class MappingRadEnv(gym.Env):
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
 
-        # idx = np.argpartition(r, k-1, axis=1)[:, 0:k]
-
-        idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
-        mask = np.zeros(np.shape(r))
-        mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
-        # remove the closest edge
-        idx = np.argmin(r, axis=1)
-        mask[np.arange(np.shape(pos1)[0])[:], idx] = 0
+        if not ALLOW_STAY:
+            idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
+            mask = np.zeros(np.shape(r))
+            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
+            # remove the closest edge
+            idx = np.argmin(r, axis=1)
+            mask[np.arange(np.shape(pos1)[0])[:], idx] = 0
+        else:
+            idx = np.argpartition(r, k - 1, axis=1)[:, 0:k]
+            mask = np.zeros(np.shape(r))
+            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
 
         r = r * mask
 
@@ -364,8 +364,8 @@ class MappingRadEnv(gym.Env):
         # self.y_max = 100 / 2
         # obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
 
-        self.x_max = 200
-        self.y_max = 200
+        self.x_max = 100
+        self.y_max = 100
         # obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
 
         obstacles = []
@@ -395,7 +395,7 @@ class MappingRadEnv(gym.Env):
         # elif MAP_TYPE == SPARSE_GRID:
         #     self.gen_sparse_grid()
 
-        self.nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        # self.nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
 
         self.max_edges = self.n_agents * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
@@ -439,6 +439,7 @@ class MappingRadEnv(gym.Env):
                 ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
             ]
         )
+
 
     @staticmethod
     def unpack_obs(obs, ob_space):
@@ -487,3 +488,47 @@ class MappingRadEnv(gym.Env):
         globs = tf.fill((batch_size, 1), 0.0)
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
+
+    def controller(self, random=False, greedy=False):
+        """
+        Greedy controller picks the nearest unvisited target
+        :return: control action for each robot (global index of agent chosen)
+        """
+        if random:
+            return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
+
+        if greedy:
+            # get closest unvisited
+            r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
+                               - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
+            r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
+
+            # get the closest neighbor to the unvisited target
+            min_unvisited = np.argmin(r, axis=1) + self.n_robots
+            r = np.linalg.norm(self.x[min_unvisited, 0:2].reshape((self.n_robots, 1, 2))
+                               - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
+            action = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+            return action
+
+        else:
+            assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
+            print(self.closest_targets)
+            if self.cached_solution is None:
+                self.cached_solution = solve_vrp(self)
+
+            print(self.cached_solution)
+
+            curr_loc = self.closest_targets
+            for i in range(self.n_robots):
+                if len(self.cached_solution[i]) > 1 and curr_loc[i] == self.cached_solution[i][0]:
+                    self.cached_solution[i] = self.cached_solution[i][1:]
+
+            print(self.cached_solution)
+            next_loc = [ls[0] for ls in self.cached_solution]
+            print(next_loc)
+
+            r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
+                               - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
+            action = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+
+            return action
