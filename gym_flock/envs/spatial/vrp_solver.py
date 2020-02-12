@@ -16,19 +16,24 @@ def construct_time_matrix(edges, edge_time=1.0):
     """
     n_nodes = int(max(max(edges[0]), max(edges[1])) + 1)
     time_matrix = np.ones((n_nodes, n_nodes)) * np.Inf
+    prev = np.zeros((n_nodes, n_nodes), dtype=int)
     np.fill_diagonal(time_matrix, 0.0)
+    np.fill_diagonal(prev, np.array(range(n_nodes)))
 
     changed_last_iter = True  # prevents looping forever in disconnected graphs
 
     while changed_last_iter and np.sum(time_matrix) == np.Inf:
         changed_last_iter = False
-        for i, (sender, receiver) in enumerate(zip(edges[0], edges[1])):
+        for (sender, receiver) in zip(edges[0], edges[1]):
             new_cost = np.minimum(time_matrix[:, sender] + edge_time, time_matrix[:, receiver])
-            # TODO save the index of the minimum neighbor here and then use to reconstruct the path later
+
+            prev[:, receiver] = np.where(time_matrix[:, sender] + edge_time < time_matrix[:, receiver],
+                                         sender, prev[:, receiver])
+
             changed_last_iter = changed_last_iter or (not np.array_equal(new_cost, time_matrix[:, receiver]))
             time_matrix[:, receiver] = new_cost
 
-    return time_matrix
+    return time_matrix, prev
 
 
 def create_data_model(env):
@@ -37,8 +42,8 @@ def create_data_model(env):
     :return: Dict containing the problem parameters
     """
     data = {}
-    # data['episode_length'] = env._max_episode_steps
-    # env = env.env
+
+    data['episode_length'] = env.episode_length
     init_loc = env.closest_targets - env.n_robots
 
     # get visitation of nodes
@@ -48,7 +53,7 @@ def create_data_model(env):
 
     # get map edges from env
     motion_edges = (env.motion_edges[0] - env.n_robots, env.motion_edges[1] - env.n_robots)
-    dist_mat = construct_time_matrix(motion_edges)
+    dist_mat, senders = construct_time_matrix(motion_edges)
 
     # add depot at index env.n_targets with distance = 0 to/from all nodes
     from_depot = np.ones((1, env.n_targets)) * 1000.0
@@ -63,6 +68,7 @@ def create_data_model(env):
     data['num_vehicles'] = env.n_robots
     data['init_loc'] = init_loc + 1
     data['depot'] = 0
+    data['senders'] = senders
 
     return data
 
@@ -76,7 +82,7 @@ def solve_vrp(env):
     :rtype:
     """
     data = create_data_model(env)
-    data['episode_length'] = 50
+
 
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
@@ -101,8 +107,8 @@ def solve_vrp(env):
     time_str = 'Time'
     routing.AddDimension(
         transit_callback_index,
-        data['episode_length'],  # allow waiting time
-        data['episode_length'],  # maximum time per vehicle
+        0,  # allow waiting time
+        int(data['episode_length'] ),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
     time_dimension = routing.GetDimensionOrDie(time_str)
@@ -130,8 +136,8 @@ def solve_vrp(env):
     # Solve the problem.
     assignment = routing.SolveWithParameters(search_parameters)
 
-    raw_trajectories = [[]]*data['num_vehicles']
-    trajectories = [[]]*data['num_vehicles']
+    raw_trajectories = [[]] * data['num_vehicles']
+    trajectories = [[]] * data['num_vehicles']
 
     for vehicle_id in range(data['num_vehicles']):
         index = assignment.Value(routing.NextVar(routing.Start(vehicle_id)))
@@ -156,6 +162,4 @@ def solve_vrp(env):
         raw_trajectories[result_index] = raw_result
         # don't add depot as last node
 
-    return trajectories
-
-
+    return trajectories, data['senders']

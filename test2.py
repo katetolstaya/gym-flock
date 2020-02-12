@@ -12,7 +12,7 @@ keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 50
+N = 10
 total_reward = 0
 
 # for each episode
@@ -32,7 +32,7 @@ for _ in range(N):
         obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
-        # visualize the environment
+        # # visualize the environment
         env.render()
         time.sleep(0.5)
 
@@ -40,4 +40,5 @@ for _ in range(N):
     total_reward += episode_reward
 
 print(total_reward/N)
+
 env.close()
