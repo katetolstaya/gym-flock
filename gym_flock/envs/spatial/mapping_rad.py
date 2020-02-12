@@ -253,16 +253,15 @@ class MappingRadEnv(gym.Env):
             fig = plt.figure()
             self.ax = fig.add_subplot(111)
 
-            # plot robots and targets and visited targets as scatter plot
-            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'mo', markersize=12,
-                                  linewidth=0)
-            line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro')
-            line3, = self.ax.plot([], [], 'b.')
-
             if plot_circles:
-                for (x, y) in zip(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1]):
-                    circle = plt.Circle((x, y), radius=self.motion_radius, facecolor='none', edgecolor='k')
-                    self.ax.add_patch(circle)
+                for (i, j) in zip(self.motion_edges[0], self.motion_edges[1]):
+                    self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
+
+            # plot robots and targets and visited targets as scatter plot
+            line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro', markersize=12)
+            line3, = self.ax.plot([], [], 'b.')
+            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'go', markersize=20,
+                                  linewidth=0)
 
             # set plot limits, axis parameters, title
             plt.xlim(self.x_min, self.x_max)
@@ -386,6 +385,7 @@ class MappingRadEnv(gym.Env):
         self.x_max = 100
         self.y_max = 100
         obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
+        # obstacles = [(10, 40, 10, 90), (60, 90, 10, 90)]
 
         # obstacles = []
 
