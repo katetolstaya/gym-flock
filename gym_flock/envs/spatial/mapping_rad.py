@@ -100,6 +100,7 @@ class MappingRadEnv(gym.Env):
         self.line3 = None
         self.cached_solution = None
         self.graph_previous = None
+        self.graph_cost = None
 
         self.episode_length = EPISODE_LENGTH
         self.step_counter = 0
@@ -222,6 +223,8 @@ class MappingRadEnv(gym.Env):
         self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
                                            replace=False) + self.n_robots] = 0
         self.cached_solution = None
+        self.graph_previous = None
+        self.graph_cost = None
         self.step_counter = 0
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -454,6 +457,33 @@ class MappingRadEnv(gym.Env):
             ]
         )
 
+    def construct_time_matrix(self, edge_time=1.0):
+        """
+        Compute the distance between all pairs of nodes in the graph
+        :param edges: list of edges provided as (sender, receiver)
+        :param edge_time: uniform edge cost, assumed to be 1.0
+        :return:
+        """
+        edges = (self.motion_edges[0] - self.n_robots, self.motion_edges[1] - self.n_robots)
+        time_matrix = np.ones((self.n_targets, self.n_targets)) * np.Inf
+        prev = np.zeros((self.n_targets, self.n_targets), dtype=int)
+        np.fill_diagonal(time_matrix, 0.0)
+        np.fill_diagonal(prev, np.array(range(self.n_targets)))
+
+        changed_last_iter = True  # prevents looping forever in disconnected graphs
+        while changed_last_iter and np.sum(time_matrix) == np.Inf:
+            changed_last_iter = False
+            for (sender, receiver) in zip(edges[0], edges[1]):
+                new_cost = np.minimum(time_matrix[:, sender] + edge_time, time_matrix[:, receiver])
+
+                prev[:, receiver] = np.where(time_matrix[:, sender] + edge_time < time_matrix[:, receiver],
+                                             sender, prev[:, receiver])
+
+                changed_last_iter = changed_last_iter or (not np.array_equal(new_cost, time_matrix[:, receiver]))
+                time_matrix[:, receiver] = new_cost
+
+        return time_matrix, prev
+
 
     @staticmethod
     def unpack_obs(obs, ob_space):
@@ -511,44 +541,41 @@ class MappingRadEnv(gym.Env):
         if random:
             return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
 
+        # compute greedy solution
+        r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
+                           - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
+        r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
+        greedy_loc = np.argmin(r, axis=1) + self.n_robots
+        curr_loc = self.closest_targets
+
+        if self.graph_previous is None:
+            self.graph_cost, self.graph_previous = self.construct_time_matrix()
+
         if greedy:
-            # get closest unvisited
-            r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                               - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-            r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
-
-            # get the closest neighbor to the unvisited target
-            next_loc = np.argmin(r, axis=1) + self.n_robots
-
+            next_loc = greedy_loc
         else:
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
             if self.cached_solution is None:
-                self.cached_solution, self.graph_previous = solve_vrp(self)
+                self.cached_solution = solve_vrp(self)
 
-            # get closest unvisited
-            r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                               - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-            r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
-
-            # get the closest neighbor to the unvisited target
-            greedy_loc = np.argmin(r, axis=1) + self.n_robots
-
-            curr_loc = self.closest_targets
             next_loc = np.zeros((self.n_robots, ), dtype=int)
+
             for i in range(self.n_robots):
-                if len(self.cached_solution[i]) == 1:
-                    print(greedy_loc[i])
-                    # next_loc[i] = self.cached_solution[i][0] # greedy_loc[i] #
+                if len(self.cached_solution[i]) == 1:  # if out of vrp waypoints, use greedy waypoint
                     next_loc[i] = greedy_loc[i]
-                else:
+                else:  # use vrp solution
                     if curr_loc[i] == self.cached_solution[i][0]:
                         self.cached_solution[i] = self.cached_solution[i][1:]
                     next_loc[i] = self.cached_solution[i][0]
 
-            # next_loc = np.array([ls[0] for ls in self.cached_solution])
-            next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
+        # use the precomputed predecessor matrix to select the next node - necessary for avoiding obstacles
+        next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
 
+        # now pick the closest immediate neighbor
+        # TODO - is this necessary? should be easier to grab the index of next_loc in mov_edges
         r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
                            - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
 
-        return np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+        closest_neighbor = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+
+        return closest_neighbor

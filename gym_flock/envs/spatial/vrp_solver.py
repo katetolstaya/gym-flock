@@ -7,35 +7,6 @@ from ortools.constraint_solver import pywrapcp
 penalty_multiplier = 1000
 
 
-def construct_time_matrix(edges, edge_time=1.0):
-    """
-    Compute the distance between all pairs of nodes in the graph
-    :param edges: list of edges provided as (sender, receiver)
-    :param edge_time: uniform edge cost, assumed to be 1.0
-    :return:
-    """
-    n_nodes = int(max(max(edges[0]), max(edges[1])) + 1)
-    time_matrix = np.ones((n_nodes, n_nodes)) * np.Inf
-    prev = np.zeros((n_nodes, n_nodes), dtype=int)
-    np.fill_diagonal(time_matrix, 0.0)
-    np.fill_diagonal(prev, np.array(range(n_nodes)))
-
-    changed_last_iter = True  # prevents looping forever in disconnected graphs
-
-    while changed_last_iter and np.sum(time_matrix) == np.Inf:
-        changed_last_iter = False
-        for (sender, receiver) in zip(edges[0], edges[1]):
-            new_cost = np.minimum(time_matrix[:, sender] + edge_time, time_matrix[:, receiver])
-
-            prev[:, receiver] = np.where(time_matrix[:, sender] + edge_time < time_matrix[:, receiver],
-                                         sender, prev[:, receiver])
-
-            changed_last_iter = changed_last_iter or (not np.array_equal(new_cost, time_matrix[:, receiver]))
-            time_matrix[:, receiver] = new_cost
-
-    return time_matrix, prev
-
-
 def create_data_model(env):
     """
     Formulate the vehicle routing problem corresponding to the MappingRad env to generate the expert solution
@@ -52,8 +23,7 @@ def create_data_model(env):
     data['penalties'] = penalty
 
     # get map edges from env
-    motion_edges = (env.motion_edges[0] - env.n_robots, env.motion_edges[1] - env.n_robots)
-    dist_mat, senders = construct_time_matrix(motion_edges)
+    dist_mat = env.graph_cost
 
     # add depot at index env.n_targets with distance = 0 to/from all nodes
     from_depot = np.ones((1, env.n_targets)) * 1000.0
@@ -68,7 +38,6 @@ def create_data_model(env):
     data['num_vehicles'] = env.n_robots
     data['init_loc'] = init_loc + 1
     data['depot'] = 0
-    data['senders'] = senders
 
     return data
 
@@ -162,4 +131,4 @@ def solve_vrp(env):
         raw_trajectories[result_index] = raw_result
         # don't add depot as last node
 
-    return trajectories, data['senders']
+    return trajectories

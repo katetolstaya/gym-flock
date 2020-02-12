@@ -33,8 +33,8 @@ for _ in range(N):
         episode_reward += reward
 
         # # visualize the environment
-        env.render()
-        time.sleep(0.5)
+        # env.render()
+        # time.sleep(0.5)
 
     print(episode_reward)
     total_reward += episode_reward
