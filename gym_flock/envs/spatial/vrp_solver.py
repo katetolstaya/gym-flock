@@ -26,7 +26,7 @@ def create_data_model(env):
     dist_mat = env.graph_cost
 
     # add depot at index env.n_targets with distance = 0 to/from all nodes
-    from_depot = np.ones((1, env.n_targets)) * 1000.0
+    from_depot = np.ones((1, env.n_targets)) * 100000.0
     from_depot[:, init_loc] = 0.0
 
     to_depot = np.zeros((env.n_targets + 1, 1))
