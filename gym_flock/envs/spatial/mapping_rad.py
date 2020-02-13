@@ -37,23 +37,41 @@ MAX_EDGES = 5
 
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
-ALLOW_STAY = False
 GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 50
 
-
-# GRID = 0
-# SQUARE = 1
-# SPARSE_GRID = 2
-# MAP_TYPE = GRID
+# parameters for map generation
+OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
+# OBST = []
+# OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
+N_ROBOTS = 3
+XMAX = 100
+YMAX = 100
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=3, frac_active_targets=0.75):
+    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=0.75, obstacles=OBST, xmax=XMAX, ymax=YMAX):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
+
+        self.y_min = 0
+        self.x_min = 0
+        self.x_max = xmax
+        self.y_max = ymax
+        self.obstacles = obstacles
+
+        # triangular lattice
+        # lattice_vectors = [
+        #     2.75  * np.array([-1.414, -1.414]),
+        #     2.75  * np.array([-1.414, 1.414])]
+
+        # square lattice
+        self.lattice_vectors = [
+            np.array([-5.5, 0.]),
+            np.array([0., -5.5])]
+
         self.np_random = None
         self.seed()
 
@@ -90,7 +108,7 @@ class MappingRadEnv(gym.Env):
 
         # call helper function to initialize arrays
         # self.system_changed = True
-        self._initialization_helper()
+        self._initialize_graph()
 
         # plotting and seeding parameters
         self.fig = None
@@ -104,6 +122,7 @@ class MappingRadEnv(gym.Env):
 
         self.episode_length = EPISODE_LENGTH
         self.step_counter = 0
+        self.n_motion_edges = 0
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -128,8 +147,8 @@ class MappingRadEnv(gym.Env):
         for _ in range(self.n_steps):
             diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
-            u = np.clip(u, a_min=-self.a_max, a_max=self.a_max)
-            u = (u + 0.1 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
+            u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
+            # u = (u + 0.1 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
 
             if self.velocity_control:
                 self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + u[:, 0:2] * self.ddt
@@ -159,50 +178,50 @@ class MappingRadEnv(gym.Env):
         done - is this the last step of the episode?
         """
 
-        mov_edges, mov_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                self.x[self.n_robots:, 0:2])
-        mov_edges = (mov_edges[0], mov_edges[1] + self.n_robots)
-        self.mov_edges = mov_edges
-        assert len(mov_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
+        # action edges from landmarks to robots
+        action_edges, action_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+                                                      self.x[self.n_robots:, 0:2])
+        action_edges = (action_edges[0], action_edges[1] + self.n_robots)
+        assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
+        self.mov_edges = action_edges
+
+        # planning edges from robots to landmarks
+        plan_edges, plan_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
+                                                      self.x[self.n_robots:, 0:2])
+        plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
         # communication edges among robots
         comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
-        # observation edges from robots to nearby landmarks
-        obs_edges, obs_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
-                                                    self.x[self.n_robots:, 0:2])
-        obs_edges = (obs_edges[0], obs_edges[1] + self.n_robots)
-
-        # observation edges from robots to nearby landmarks
+        # which landmarks is the robot observing?
         sensor_edges, _ = self._get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
                                                 self.x[self.n_robots:, 0:2])
-        sensor_edges = (sensor_edges[0], sensor_edges[1] + self.n_robots)
-
-        self.visited[sensor_edges[1]] = 1
-
-        self.step_counter += 1
-        done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
-        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets if done else 0.
+        self.visited[sensor_edges[1] + self.n_robots] = 1
 
         # we want to fix the number of edges into the robot from targets.
-        senders = np.concatenate((obs_edges[0], mov_edges[1], comm_edges[0], self.motion_edges[0]))
-        receivers = np.concatenate((obs_edges[1], mov_edges[0], comm_edges[1], self.motion_edges[1]))
-        edges = np.concatenate((obs_dist, mov_dist, comm_dist, self.motion_dist)).reshape((-1, 1))
+        # senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0], self.motion_edges[0]))
+        # receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1], self.motion_edges[1]))
+        # edges = np.concatenate((plan_dist, action_dist, comm_dist, self.motion_dist)).reshape((-1, N_EDGE_FEAT))
+        senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
+        receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
+        edges = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
+        assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # -1 indicates unused edges
-        self.senders.fill(-1)
-        self.receivers.fill(-1)
+        self.senders[self.n_motion_edges:] = -1
+        self.receivers[self.n_motion_edges:] = -1
+        self.senders[self.n_motion_edges:self.n_motion_edges + len(senders)] = senders
+        self.receivers[self.n_motion_edges:self.n_motion_edges + len(receivers)] = receivers
 
-        assert len(senders) <= np.shape(self.senders)[0], "Increase MAX_EDGES"
-
-        self.senders[:len(senders)] = senders
-        self.receivers[:len(receivers)] = receivers
-
-        self.edges[:edges.shape[0], :edges.shape[1]] = edges
+        self.edges[self.n_motion_edges:self.n_motion_edges + len(senders), :] = edges
         self.nodes[:, 0] = self.agent_type.flatten()
         self.nodes[:, 1] = np.logical_not(self.visited).flatten()
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers}
+
+        self.step_counter += 1
+        done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
+        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets if done else 0.
 
         return obs, reward, done
 
@@ -223,8 +242,6 @@ class MappingRadEnv(gym.Env):
         self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
                                            replace=False) + self.n_robots] = 0
         self.cached_solution = None
-        self.graph_previous = None
-        self.graph_cost = None
         self.step_counter = 0
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -236,13 +253,12 @@ class MappingRadEnv(gym.Env):
         closest_targets = np.argmin(r, axis=1) + self.n_robots
         return closest_targets
 
-    def render(self, mode='human', plot_circles=True):
+    def render(self, mode='human'):
         """
         Render the environment with agents as points in 2D space. The robots are in green, the targets in red.
-        When a target has been visited, it becomes a blue dot. The plot objects are created on the first render() call and persist between
-        calls of this function.
+        When a target has been visited, it becomes a blue dot. The plot objects are created on the first render() call
+        and persist between calls of this function.
         :param mode: 'human' mode renders the environment, and nothing happens otherwise
-        :param plot_circles: flag that determines if circles are plotted to show map range
         """
         if mode is not 'human':
             return
@@ -253,9 +269,8 @@ class MappingRadEnv(gym.Env):
             fig = plt.figure()
             self.ax = fig.add_subplot(111)
 
-            if plot_circles:
-                for (i, j) in zip(self.motion_edges[0], self.motion_edges[1]):
-                    self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
+            for (i, j) in zip(self.motion_edges[0], self.motion_edges[1]):
+                self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
 
             # plot robots and targets and visited targets as scatter plot
             line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro', markersize=12)
@@ -311,8 +326,7 @@ class MappingRadEnv(gym.Env):
         :param self_loops: boolean flag indicating whether to include self loops
         :return: (senders, receivers), edge features
         """
-        diff = MappingRadEnv._get_pos_diff(pos1, pos2)
-        r = np.linalg.norm(diff, axis=2)
+        r = np.linalg.norm(MappingRadEnv._get_pos_diff(pos1, pos2), axis=2)
         r[r > rad] = 0
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, 0)
@@ -338,7 +352,7 @@ class MappingRadEnv(gym.Env):
         return diff
 
     @staticmethod
-    def _get_k_edges(k, pos1, pos2=None, self_loops=False):
+    def _get_k_edges(k, pos1, pos2=None, self_loops=False, allow_nearest=False):
         """
         Get list of edges from agents in positions pos1 to closest agents in positions pos2.
         Each agent in pos1 will have K outgoing edges.
@@ -346,73 +360,38 @@ class MappingRadEnv(gym.Env):
         :param pos1: first set of positions
         :param pos2: second set of positions
         :param self_loops: boolean flag indicating whether to include self loops
+        :param allow_nearest: allow the nearest landmark as an action or remove it
         :return: (senders, receivers), edge features
         """
-        diff = MappingRadEnv._get_pos_diff(pos1, pos2)
-        r = np.linalg.norm(diff, axis=2)
+        r = np.linalg.norm(MappingRadEnv._get_pos_diff(pos1, pos2), axis=2)
+
         if not self_loops and pos2 is None:
             np.fill_diagonal(r, np.Inf)
 
-        if not ALLOW_STAY:
-            idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
-            mask = np.zeros(np.shape(r))
+        mask = np.zeros(np.shape(r))
+        if allow_nearest:
+            idx = np.argpartition(r, k - 1, axis=1)[:, 0:k]
             mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
-            # remove the closest edge
+        else:  # remove the closest edge
+            idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
+            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
             idx = np.argmin(r, axis=1)
             mask[np.arange(np.shape(pos1)[0])[:], idx] = 0
-        else:
-            idx = np.argpartition(r, k - 1, axis=1)[:, 0:k]
-            mask = np.zeros(np.shape(r))
-            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
 
-        r = r * mask
-
-        edges = np.nonzero(r)
+        edges = np.nonzero(mask)
         return edges, r[edges]
 
-    def _initialization_helper(self):
+    def _initialize_graph(self):
         """
         Initialization code that is needed after params are re-loaded
         """
-
-        self.y_min = 0
-        self.x_min = 0
-
-        # self.x_max = 100 / 2
-        # self.y_max = 100 / 2
-        # obstacles = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-
-        self.x_max = 100
-        self.y_max = 100
-        obstacles = [(10, 45, 10, 90), (55, 90, 10, 90)]
-        # obstacles = [(10, 40, 10, 90), (60, 90, 10, 90)]
-
-        # obstacles = []
-
-        # triangular lattice
-        # lattice_vectors = [
-        #     2.75  * np.array([-1.414, -1.414]),
-        #     2.75  * np.array([-1.414, 1.414])]
-
-        # square lattice
-        lattice_vectors = [
-            np.array([-5.5, 0.]),
-            np.array([0., -5.5])]
-
-        targets = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), lattice_vectors)
-        targets = reject_collisions(targets, obstacles)
+        targets = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), self.lattice_vectors)
+        targets = reject_collisions(targets, self.obstacles)
 
         self.n_targets = np.shape(targets)[0]
         self.n_agents = self.n_targets + self.n_robots
         self.x = np.zeros((self.n_agents, self.nx))
         self.x[self.n_robots:, 0:2] = targets
-
-        # if MAP_TYPE == GRID:
-        #     self.gen_grid()
-        # elif MAP_TYPE == SQUARE:
-        #     self.gen_square()
-        # elif MAP_TYPE == SPARSE_GRID:
-        #     self.gen_sparse_grid()
 
         self.max_edges = self.n_agents * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
@@ -439,8 +418,13 @@ class MappingRadEnv(gym.Env):
 
         self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
                                                                     self_loops=True)
-
+        # cache motion edges
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
+        self.n_motion_edges = len(self.motion_edges[0])
+
+        self.senders[:self.n_motion_edges] = self.motion_edges[0]
+        self.receivers[:self.n_motion_edges] = self.motion_edges[1]
+        self.edges[:self.n_motion_edges, :] = self.motion_dist.reshape((-1, 1))
 
         # problem's observation and action spaces
         if self.n_robots == 1:
