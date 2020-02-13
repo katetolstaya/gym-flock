@@ -48,10 +48,11 @@ OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
 N_ROBOTS = 3
 XMAX = 100
 YMAX = 100
+FRAC_ACTIVE = 0.75
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=0.75, obstacles=OBST, xmax=XMAX, ymax=YMAX):
+    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, obstacles=OBST, xmax=XMAX, ymax=YMAX):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
