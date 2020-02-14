@@ -4,7 +4,7 @@ import numpy as np
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
-penalty_multiplier = 2000
+penalty_multiplier = 100
 
 
 def create_data_model(env):
