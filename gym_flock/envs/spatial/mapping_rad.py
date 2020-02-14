@@ -31,6 +31,7 @@ font = {'family': 'sans-serif',
 # number of node and edge features
 N_NODE_FEAT = 2
 N_EDGE_FEAT = 1
+N_GLOB_FEAT = 1
 
 # padding for a variable number of graph edges
 MAX_EDGES = 5
@@ -217,8 +218,10 @@ class MappingRadEnv(gym.Env):
         self.edges[self.n_motion_edges:self.n_motion_edges + len(senders), :] = edges
         self.nodes[:, 0] = self.agent_type.flatten()
         self.nodes[:, 1] = np.logical_not(self.visited).flatten()
+        step_array = np.array([self.step_counter]).reshape((1, 1))
 
-        obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers}
+        obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
+               'step': step_array}
 
         self.step_counter += 1
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
@@ -439,6 +442,7 @@ class MappingRadEnv(gym.Env):
                 ("edges", Box(shape=(self.max_edges, N_EDGE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)),
                 ("senders", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
                 ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
+                ("step", Box(shape=(1, 1), low=0, high=EPISODE_LENGTH, dtype=np.float32)),
             ]
         )
 
@@ -474,18 +478,18 @@ class MappingRadEnv(gym.Env):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
         # assume flattened box
-        n_nodes = ob_space.shape[0] // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = 1
         dim_nodes = 2
 
         # unpack node and edge data from flattened array
-        shapes = ((n_nodes, dim_nodes), (max_n_edges, dim_edges), (max_n_edges, 1), (max_n_edges, 1))
+        shapes = ((n_nodes, dim_nodes), (max_n_edges, dim_edges), (max_n_edges, 1), (max_n_edges, 1), (1, N_GLOB_FEAT))
         sizes = [np.prod(s) for s in shapes]
         tensors = tf.split(obs, sizes, axis=1)
         tensors = [tf.reshape(t, (-1,) + s) for (t, s) in zip(tensors, shapes)]
-        nodes, edges, senders, receivers = tensors
+        nodes, edges, senders, receivers, globs = tensors
         batch_size = tf.shape(nodes)[0]
 
         n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
@@ -497,6 +501,7 @@ class MappingRadEnv(gym.Env):
         mask = tf.reshape(mask, (-1,))
 
         # flatten edge data
+
         edges = tf.reshape(edges, (-1, dim_edges))
         senders = tf.reshape(senders, (-1,))
         receivers = tf.reshape(receivers, (-1,))
@@ -506,14 +511,14 @@ class MappingRadEnv(gym.Env):
         senders = tf.boolean_mask(senders, mask)
         receivers = tf.boolean_mask(receivers, mask)
 
+        globs = tf.reshape(globs, (batch_size, N_GLOB_FEAT))
+
         # cast all indices to int
         n_node = tf.cast(n_node, tf.int32)
         n_edge = tf.cast(n_edge, tf.int32)
         senders = tf.cast(senders, tf.int32)
         receivers = tf.cast(receivers, tf.int32)
-
-        # TODO this is a hack - want global outputs, but have no global inputs
-        globs = tf.fill((batch_size, 1), 0.0)
+        globs = tf.cast(globs, tf.int32)
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
 
