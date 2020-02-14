@@ -518,7 +518,6 @@ class MappingRadEnv(gym.Env):
         n_edge = tf.cast(n_edge, tf.int32)
         senders = tf.cast(senders, tf.int32)
         receivers = tf.cast(receivers, tf.int32)
-        globs = tf.cast(globs, tf.int32)
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
 
