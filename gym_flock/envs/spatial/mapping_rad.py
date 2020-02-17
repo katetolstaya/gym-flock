@@ -39,11 +39,13 @@ MAX_EDGES = 5
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
 GREEDY_CONTROLLER = False
+# GREEDY_CONTROLLER = True
 
 EPISODE_LENGTH = 50
 
 # parameters for map generation
-OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
+# OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
+OBST = [(10, 40, 10, 90), (60, 90, 10, 90)]
 # OBST = []
 # OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
 N_ROBOTS = 3
