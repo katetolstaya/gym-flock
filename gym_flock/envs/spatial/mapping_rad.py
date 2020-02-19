@@ -200,6 +200,7 @@ class MappingRadEnv(gym.Env):
         # which landmarks is the robot observing?
         sensor_edges, _ = self._get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
                                                 self.x[self.n_robots:, 0:2])
+        old_sum = np.sum(self.visited[self.n_robots:])
         self.visited[sensor_edges[1] + self.n_robots] = 1
 
         # we want to fix the number of edges into the robot from targets.
@@ -228,8 +229,8 @@ class MappingRadEnv(gym.Env):
         self.step_counter += 1
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
         # reward = np.sum(self.visited[self.n_robots:]) - self.n_targets if done else 0.
-        reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
-
+        # reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
+        reward = np.sum(self.visited[self.n_robots:]) - old_sum
         return obs, reward, done
 
     def reset(self):
