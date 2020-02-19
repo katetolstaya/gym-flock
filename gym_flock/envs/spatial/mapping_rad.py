@@ -227,7 +227,8 @@ class MappingRadEnv(gym.Env):
 
         self.step_counter += 1
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
-        reward = np.sum(self.visited[self.n_robots:]) - self.n_targets if done else 0.
+        # reward = np.sum(self.visited[self.n_robots:]) - self.n_targets if done else 0.
+        reward = (np.sum(self.visited[self.n_robots:]) - self.n_targets) / self.n_targets
 
         return obs, reward, done
 
