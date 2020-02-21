@@ -49,7 +49,7 @@ EPISODE_LENGTH = 50
 OBST = [(0, 90, 0, 90), (110, 200, 110, 200), (0, 90, 110, 200), (110, 200, 0, 90)]
 # OBST = []
 # OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-N_ROBOTS = 5
+N_ROBOTS = 4
 # XMAX = 100
 # YMAX = 100
 XMAX = 200
@@ -69,10 +69,10 @@ class MappingRadEnv(gym.Env):
         self.y_max = ymax
         self.obstacles = obstacles
 
-        # triangular lattice
-        # lattice_vectors = [
-        #     2.75  * np.array([-1.414, -1.414]),
-        #     2.75  * np.array([-1.414, 1.414])]
+        # # triangular lattice
+        # self.lattice_vectors = [
+        #     2.75 * np.array([-1.414, -1.414]),
+        #     2.75 * np.array([-1.414, 1.414])]
 
         # square lattice
         self.lattice_vectors = [
@@ -244,7 +244,8 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        # nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
         self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
         self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
                                                               high=0.5 * self.motion_radius, size=(self.n_robots, 2))
