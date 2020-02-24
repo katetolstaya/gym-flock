@@ -34,6 +34,8 @@ N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
 # padding for a variable number of graph edges
+PAD_NODES = False
+MAX_NODES = 300
 MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
@@ -223,17 +225,18 @@ class MappingRadEnv(gym.Env):
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
         self.receivers[self.n_motion_edges:] = -1
+        self.nodes.fill(-1)
 
-        self.senders[self.n_motion_edges:self.n_motion_edges + len(senders)] = senders
-        self.receivers[self.n_motion_edges:self.n_motion_edges + len(receivers)] = receivers
-        self.edges[self.n_motion_edges:self.n_motion_edges + len(senders), :] = edges
+        # self.senders[self.n_motion_edges:self.n_motion_edges + len(senders)] = senders
+        # self.receivers[self.n_motion_edges:self.n_motion_edges + len(receivers)] = receivers
+        # self.edges[self.n_motion_edges:self.n_motion_edges + len(senders), :] = edges
 
-        # self.senders[-len(senders):] = senders
-        # self.receivers[-len(receivers):] = receivers
-        # self.edges[-len(senders):, :] = edges
+        self.senders[-len(senders):] = senders
+        self.receivers[-len(receivers):] = receivers
+        self.edges[-len(senders):, :] = edges
 
-        self.nodes[:, 0] = self.agent_type.flatten()
-        self.nodes[:, 1] = np.logical_not(self.visited).flatten()
+        self.nodes[0:self.n_agents, 0] = self.agent_type.flatten()
+        self.nodes[0:self.n_agents, 1] = np.logical_not(self.visited).flatten()
         # TODO landmark data will grow from beginning to end, while the robot data goes at the end
 
         step_array = np.array([self.step_counter]).reshape((1, 1))
@@ -417,12 +420,18 @@ class MappingRadEnv(gym.Env):
         self.x = np.zeros((self.n_agents, self.nx))
         self.x[self.n_robots:, 0:2] = targets
 
-        self.max_edges = self.n_agents * MAX_EDGES
+        # self.max_edges = self.n_agents * MAX_EDGES
+        if PAD_NODES:
+            self.max_nodes = MAX_NODES
+        else:
+            self.max_nodes = self.n_agents
+
+        self.max_edges = self.max_nodes * MAX_EDGES
         self.agent_type = np.vstack((np.ones((self.n_robots, 1)), np.zeros((self.n_targets, 1))))
         self.n_actions = N_ACTIONS
 
         self.edges = np.zeros((self.max_edges, 1), dtype=np.float32)
-        self.nodes = np.zeros((self.n_agents, 2), dtype=np.float32)
+        self.nodes = np.zeros((self.max_nodes, 2), dtype=np.float32)
         self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
@@ -456,15 +465,21 @@ class MappingRadEnv(gym.Env):
         else:
             self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
 
+        if PAD_NODES:
+            nodes_space = Box(shape=(self.max_nodes, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)
+        else:
+            nodes_space = Box(shape=(self.n_agents, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)
+
         self.observation_space = gym.spaces.Dict(
             [
-                ("nodes", Box(shape=(self.n_agents, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)),
+                ("nodes", nodes_space),
                 ("edges", Box(shape=(self.max_edges, N_EDGE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)),
                 ("senders", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
                 ("receivers", Box(shape=(self.max_edges, 1), low=0, high=self.n_agents, dtype=np.float32)),
                 ("step", Box(shape=(1, 1), low=0, high=EPISODE_LENGTH, dtype=np.float32)),
             ]
         )
+
 
     def construct_time_matrix(self, edge_time=1.0):
         """
@@ -498,7 +513,10 @@ class MappingRadEnv(gym.Env):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
         # assume flattened box
-        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        if PAD_NODES:
+            n_nodes = MAX_NODES
+        else:
+            n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = 1
@@ -511,10 +529,16 @@ class MappingRadEnv(gym.Env):
         tensors = [tf.reshape(t, (-1,) + s) for (t, s) in zip(tensors, shapes)]
         nodes, edges, senders, receivers, globs = tensors
         batch_size = tf.shape(nodes)[0]
-
-        # TODO mask the nodes (just like edges), then compute n_node
-        n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
         nodes = tf.reshape(nodes, (-1, dim_nodes))
+
+        if PAD_NODES:
+            # compute node mask
+            node_mask = tf.not_equal(tf.slice(nodes, [0, 0], size=[1, -1]), -1)
+            nodes = tf.boolean_mask(nodes, node_mask, axis=0)
+            nodes = tf.reshape(nodes, (-1, dim_nodes))
+            n_node = tf.reduce_sum(tf.reshape(tf.cast(node_mask, tf.float32), (batch_size, -1)), axis=1)
+        else:
+            n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
 
         # compute edge mask and number of edges per graph
         mask = tf.reshape(tf.not_equal(senders, -1), (batch_size, -1))  # padded edges have sender = -1
