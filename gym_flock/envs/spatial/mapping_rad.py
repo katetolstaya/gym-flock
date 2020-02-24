@@ -34,22 +34,23 @@ N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
 # padding for a variable number of graph edges
-MAX_EDGES = 5
+MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 50
+EPISODE_LENGTH = 20
 
 # parameters for map generation
 # OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
 # OBST = [(10, 40, 10, 90), (60, 90, 10, 90)]
-OBST = [(0, 90, 0, 90), (110, 200, 110, 200), (0, 90, 110, 200), (110, 200, 0, 90)]
+OBST = [(5, 95, 5, 95), (105, 195, 105, 195), (5, 95, 105, 195), (105, 195, 5, 95)]
+# OBST = [(0, 95, 0, 95), (105, 200, 105, 200), (0, 95, 105, 200), (105, 200, 0, 95)]
 # OBST = []
 # OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-N_ROBOTS = 5
+N_ROBOTS = 10
 # XMAX = 100
 # YMAX = 100
 XMAX = 200
@@ -218,12 +219,19 @@ class MappingRadEnv(gym.Env):
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
         self.receivers[self.n_motion_edges:] = -1
+
         self.senders[self.n_motion_edges:self.n_motion_edges + len(senders)] = senders
         self.receivers[self.n_motion_edges:self.n_motion_edges + len(receivers)] = receivers
-
         self.edges[self.n_motion_edges:self.n_motion_edges + len(senders), :] = edges
+
+        # self.senders[-len(senders):] = senders
+        # self.receivers[-len(receivers):] = receivers
+        # self.edges[-len(senders):, :] = edges
+
         self.nodes[:, 0] = self.agent_type.flatten()
         self.nodes[:, 1] = np.logical_not(self.visited).flatten()
+        # TODO landmark data will grow from beginning to end, while the robot data goes at the end
+
         step_array = np.array([self.step_counter]).reshape((1, 1))
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
@@ -500,6 +508,7 @@ class MappingRadEnv(gym.Env):
         nodes, edges, senders, receivers, globs = tensors
         batch_size = tf.shape(nodes)[0]
 
+        # TODO mask the nodes (just like edges), then compute n_node
         n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
         nodes = tf.reshape(nodes, (-1, dim_nodes))
 
