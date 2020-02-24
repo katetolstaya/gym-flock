@@ -9,7 +9,7 @@ from matplotlib.pyplot import gca
 from collections import OrderedDict
 from gym.spaces import Box
 
-from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions
+from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions, gen_obstacle_grid
 from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
 try:
@@ -46,11 +46,15 @@ EPISODE_LENGTH = 20
 # parameters for map generation
 # OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
 # OBST = [(10, 40, 10, 90), (60, 90, 10, 90)]
-OBST = [(5, 95, 5, 95), (105, 195, 105, 195), (5, 95, 105, 195), (105, 195, 5, 95)]
+
+ranges = [(5, 65), (70, 130), (135, 195)]
+OBST = gen_obstacle_grid(ranges)
+
+# OBST = [(5, 95, 5, 95), (105, 195, 105, 195), (5, 95, 105, 195), (105, 195, 5, 95)]
 # OBST = [(0, 95, 0, 95), (105, 200, 105, 200), (0, 95, 105, 200), (105, 200, 0, 95)]
 # OBST = []
 # OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-N_ROBOTS = 10
+N_ROBOTS = 12
 # XMAX = 100
 # YMAX = 100
 XMAX = 200

@@ -25,7 +25,13 @@ for _ in range(N):
     done = False
     while not done:
         # compute the baseline controller
-        action = env.env.env.controller()
+        try:
+            action = env.env.env.controller()
+        except AssertionError:
+            obs = env.reset()
+            episode_reward = 0
+            done = False
+            continue
         # action = env.env.env.controller(random=True)
         # action = env.env.env.controller(random=False, greedy=True)
 
@@ -33,9 +39,9 @@ for _ in range(N):
         obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
-        # visualize the environment
-        env.render()
-        time.sleep(0.125)
+        # # visualize the environment
+        # env.render()
+        # time.sleep(0.125)
 
     print(episode_reward)
     total_reward += episode_reward

@@ -16,6 +16,14 @@ def in_obstacle(obstacles, px, py):
     return False
 
 
+def gen_obstacle_grid(ranges):
+    obstacle_list = []
+    for (x1, x2) in ranges:
+        for (y1, y2) in ranges:
+            obstacle_list.append((x1, x2, y1, y2))
+    return obstacle_list
+
+
 def generate_lattice(free_region, lattice_vectors):
     """
     Generate hexagonal lattice
