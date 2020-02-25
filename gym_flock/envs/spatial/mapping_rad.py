@@ -43,7 +43,7 @@ N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 20
+EPISODE_LENGTH = 10
 
 # parameters for map generation
 # OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
