@@ -77,7 +77,7 @@ def solve_vrp(env):
     routing.AddDimension(
         transit_callback_index,
         0,  # allow waiting time
-        int(data['episode_length']) * 2,  # maximum time per vehicle
+        int(data['episode_length']),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
     time_dimension = routing.GetDimensionOrDie(time_str)
