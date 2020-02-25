@@ -43,25 +43,25 @@ N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 20
+EPISODE_LENGTH = 50
 
 # parameters for map generation
-# OBST = [(10, 45, 10, 90), (55, 90, 10, 90)]
-# OBST = [(10, 40, 10, 90), (60, 90, 10, 90)]
-
-ranges = [(5, 65), (70, 130), (135, 195)]
+ranges = [(5, 30),  (35, 65), (70, 95)]
+# ranges = [(5, 65), (70, 130), (135, 195)]
 # ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
+# ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
+
 OBST = gen_obstacle_grid(ranges)
 
-# OBST = [(5, 95, 5, 95), (105, 195, 105, 195), (5, 95, 105, 195), (105, 195, 5, 95)]
-# OBST = [(0, 95, 0, 95), (105, 200, 105, 200), (0, 95, 105, 200), (105, 200, 0, 95)]
-# OBST = []
-# OBST = [(10 / 2, 45 / 2, 10 / 2, 90 / 2), (55 / 2, 90 / 2, 10 / 2, 90 / 2)]
-N_ROBOTS = 12
-# XMAX = 100
-# YMAX = 100
-XMAX = 200
-YMAX = 200
+
+N_ROBOTS = 3
+XMAX = 100
+YMAX = 100
+# XMAX = 200
+# YMAX = 200
+# XMAX = 400
+# YMAX = 400
+
 # FRAC_ACTIVE = 1.0
 FRAC_ACTIVE = 0.75
 
