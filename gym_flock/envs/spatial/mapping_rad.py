@@ -9,7 +9,7 @@ from matplotlib.pyplot import gca
 from collections import OrderedDict
 from gym.spaces import Box
 
-from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions, gen_obstacle_grid
+from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions, gen_obstacle_grid, in_obstacle
 from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
 try:
@@ -43,7 +43,7 @@ N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 50
+EPISODE_LENGTH = 20
 
 # parameters for map generation
 ranges = [(5, 30),  (35, 65), (70, 95)]
@@ -54,7 +54,7 @@ ranges = [(5, 30),  (35, 65), (70, 95)]
 OBST = gen_obstacle_grid(ranges)
 
 
-N_ROBOTS = 3
+N_ROBOTS = 5
 XMAX = 100
 YMAX = 100
 # XMAX = 200
@@ -64,6 +64,15 @@ YMAX = 100
 
 # FRAC_ACTIVE = 1.0
 FRAC_ACTIVE = 0.75
+
+# unvisited_regions = [(0, 200, 200, 400), (200, 400, 0, 200)]
+# start_regions = [(75, 125, 150, 200)]
+
+# unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
+# start_regions = [(0, 70, 0, 70)]
+#
+unvisited_regions = [(0, 35, 30, 100), (65, 100, 0, 35)]
+start_regions = [(0, 35, 0, 35)]
 
 
 class MappingRadEnv(gym.Env):
@@ -261,15 +270,19 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 2:4] = self.np_random.uniform(low=-self.v_max, high=self.v_max, size=(self.n_robots, 2))
 
         # initialize robots near targets
-        nearest_landmarks = self.np_random.choice(self.n_targets, size=(self.n_robots,), replace=False)
+        nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,), replace=False)
         # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
         self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
         self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
                                                               high=0.5 * self.motion_radius, size=(self.n_robots, 2))
 
+        # self.visited.fill(1)
+        # self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
+        #                                    replace=False) + self.n_robots] = 0
+
         self.visited.fill(1)
-        self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
-                                           replace=False) + self.n_robots] = 0
+        self.visited[np.arange(self.n_targets)[self.unvisited_region] + self.n_robots] = 0
+
         self.cached_solution = None
         self.step_counter = 0
         obs, _, _ = self._get_obs_reward()
@@ -444,6 +457,8 @@ class MappingRadEnv(gym.Env):
         self.visited = np.ones((self.n_agents, 1))
         self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
                                            replace=False) + self.n_robots] = 0
+        self.unvisited_region = [in_obstacle(unvisited_regions, self.x[i, 0], self.x[i, 1]) for i in range(self.n_robots, self.n_agents)]
+        self.start_region = [in_obstacle(start_regions, self.x[i, 0], self.x[i, 1]) for i in range(self.n_robots, self.n_agents)]
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
