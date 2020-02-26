@@ -32,6 +32,7 @@ class MappingAirsimEnv(MappingRadEnv):
 
         self.z = np.linspace(start=-50, stop=-30, num=len(self.names))
         self.episode_length = 100000
+        self.a_max = 10.0
 
     def reset(self):
         self.client.reset()
@@ -72,7 +73,7 @@ class MappingAirsimEnv(MappingRadEnv):
         u = np.reshape(u, (self.n_robots, 2))
 
         # send_loc_commands(self.client, self.names, self.home, new_waypoint, self.z)
-        send_velocity_commands(self.client, self.names, self.z, u)
+        send_velocity_commands(self.client, self.names, self.z, u, duration=0.2)
 
         states, _ = get_states(self.client, self.names, self.home)
         self.x[:self.n_robots, :] = states  # get drone locations and velocities
