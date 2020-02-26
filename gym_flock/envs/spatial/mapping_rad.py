@@ -116,8 +116,8 @@ class MappingRadEnv(gym.Env):
         self.dt = 2.0
         self.n_steps = 5
         self.ddt = self.dt / self.n_steps
-        self.v_max = 3.0  # max velocity
-        self.a_max = 3.0  # max acceleration
+        self.v_max = 6.0  # max velocity
+        self.a_max = 2.0  # max acceleration
         self.action_gain = 1.0  # controller gain
 
         # initialization parameters
@@ -174,7 +174,7 @@ class MappingRadEnv(gym.Env):
             diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
             u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
-            # u = (u + 0.1 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
+            # u = (u + 0.5 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
 
             if self.velocity_control:
                 self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + u[:, 0:2] * self.ddt
