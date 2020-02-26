@@ -3,7 +3,7 @@ from gym.envs.registration import register
 register(
     id='MappingAirsim-v0',
     entry_point='gym_flock.envs.spatial:MappingAirsimEnv',
-    max_episode_steps=100,
+    max_episode_steps=100000,
 )
 
 register(

@@ -55,9 +55,6 @@ def send_velocity_commands(client, names, z, u, duration=0.01):
 
 
 def send_loc_commands(client, names, home, loc, z):
-    print(names)
-    print(home)
-    print(loc)
     n_agents = len(names)
     fi = []
     for i in range(n_agents):

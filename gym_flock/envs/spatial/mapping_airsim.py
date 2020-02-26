@@ -1,9 +1,10 @@
 import airsim
 import numpy as np
-from gym_flock.envs.airsim.utils import send_loc_commands, setup_drones, get_states
+from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
 from gym_flock.envs.spatial.make_map import gen_obstacle_grid
 from gym_flock.envs.airsim.utils import parse_settings
 from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
+from gym_flock.envs.spatial.utils import _get_pos_diff
 
 # parameters for map generation
 ranges = [(5, 30),  (35, 65), (70, 95)]
@@ -30,6 +31,7 @@ class MappingAirsimEnv(MappingRadEnv):
         self.client.confirmConnection()
 
         self.z = np.linspace(start=-50, stop=-30, num=len(self.names))
+        self.episode_length = 100000
 
     def reset(self):
         self.client.reset()
@@ -61,9 +63,16 @@ class MappingAirsimEnv(MappingRadEnv):
         u_ind = np.reshape(u_ind, (-1, 1))
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
         u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
-        new_waypoint = np.reshape(self.x[u_ind, 0:2], (self.n_robots, 2))
+        # new_waypoint = np.reshape(self.x[u_ind, 0:2], (self.n_robots, 2))
 
-        send_loc_commands(self.client, self.names, self.home, new_waypoint, self.z)
+        diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
+        u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
+
+        u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
+        u = np.reshape(u, (self.n_robots, 2))
+
+        # send_loc_commands(self.client, self.names, self.home, new_waypoint, self.z)
+        send_velocity_commands(self.client, self.names, self.z, u)
 
         states, _ = get_states(self.client, self.names, self.home)
         self.x[:self.n_robots, :] = states  # get drone locations and velocities
