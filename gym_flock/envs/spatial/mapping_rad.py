@@ -11,6 +11,7 @@ from gym.spaces import Box
 
 from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions, gen_obstacle_grid, in_obstacle
 from gym_flock.envs.spatial.vrp_solver import solve_vrp
+from gym_flock.envs.spatial.utils import _get_pos_diff, _get_graph_edges, _get_k_edges
 
 try:
     import tensorflow as tf
@@ -170,7 +171,7 @@ class MappingRadEnv(gym.Env):
         u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
         for _ in range(self.n_steps):
-            diff = self._get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
+            diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
             u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
             u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
             # u = (u + 0.1 * (self.np_random.uniform(size=(self.n_robots, 2)) - 0.5)) * self.action_gain
@@ -204,22 +205,22 @@ class MappingRadEnv(gym.Env):
         """
 
         # action edges from landmarks to robots
-        action_edges, action_dist = self._get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+        action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
                                                       self.x[self.n_robots:, 0:2])
         action_edges = (action_edges[0], action_edges[1] + self.n_robots)
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
         self.mov_edges = action_edges
 
         # planning edges from robots to landmarks
-        plan_edges, plan_dist = self._get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
+        plan_edges, plan_dist = _get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
                                                       self.x[self.n_robots:, 0:2])
         plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
         # communication edges among robots
-        comm_edges, comm_dist = self._get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
+        comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
         # which landmarks is the robot observing?
-        sensor_edges, _ = self._get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
+        sensor_edges, _ = _get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
                                                 self.x[self.n_robots:, 0:2])
         old_sum = np.sum(self.visited[self.n_robots:])
         self.visited[sensor_edges[1] + self.n_robots] = 1
@@ -357,72 +358,6 @@ class MappingRadEnv(gym.Env):
         """
         pass
 
-    @staticmethod
-    def _get_graph_edges(rad, pos1, pos2=None, self_loops=False):
-        """
-        Get list of edges from agents in positions pos1 to positions pos2.
-        for agents closer than distance rad
-        :param rad: "communication" radius
-        :param pos1: first set of positions
-        :param pos2: second set of positions
-        :param self_loops: boolean flag indicating whether to include self loops
-        :return: (senders, receivers), edge features
-        """
-        r = np.linalg.norm(MappingRadEnv._get_pos_diff(pos1, pos2), axis=2)
-        r[r > rad] = 0
-        if not self_loops and pos2 is None:
-            np.fill_diagonal(r, 0)
-        edges = np.nonzero(r)
-        return edges, r[edges]
-
-    @staticmethod
-    def _get_pos_diff(sender_loc, receiver_loc=None):
-        """
-        Get matrix of distances between agents in positions pos1 to positions pos2.
-        :param sender_loc: first set of positions
-        :param receiver_loc: second set of positions (use sender_loc if None)
-        :return: matrix of distances, len(pos1) x len(pos2)
-        """
-        n = sender_loc.shape[0]
-        m = sender_loc.shape[1]
-        if receiver_loc is not None:
-            n2 = receiver_loc.shape[0]
-            m2 = receiver_loc.shape[1]
-            diff = sender_loc.reshape((n, 1, m)) - receiver_loc.reshape((1, n2, m2))
-        else:
-            diff = sender_loc.reshape((n, 1, m)) - sender_loc.reshape((1, n, m))
-        return diff
-
-    @staticmethod
-    def _get_k_edges(k, pos1, pos2=None, self_loops=False, allow_nearest=False):
-        """
-        Get list of edges from agents in positions pos1 to closest agents in positions pos2.
-        Each agent in pos1 will have K outgoing edges.
-        :param k: number of edges
-        :param pos1: first set of positions
-        :param pos2: second set of positions
-        :param self_loops: boolean flag indicating whether to include self loops
-        :param allow_nearest: allow the nearest landmark as an action or remove it
-        :return: (senders, receivers), edge features
-        """
-        r = np.linalg.norm(MappingRadEnv._get_pos_diff(pos1, pos2), axis=2)
-
-        if not self_loops and pos2 is None:
-            np.fill_diagonal(r, np.Inf)
-
-        mask = np.zeros(np.shape(r))
-        if allow_nearest:
-            idx = np.argpartition(r, k - 1, axis=1)[:, 0:k]
-            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
-        else:  # remove the closest edge
-            idx = np.argpartition(r, k, axis=1)[:, 0:k + 1]
-            mask[np.arange(np.shape(pos1)[0])[:, None], idx] = 1
-            idx = np.argmin(r, axis=1)
-            mask[np.arange(np.shape(pos1)[0])[:], idx] = 0
-
-        edges = np.nonzero(mask)
-        return edges, r[edges]
-
     def _initialize_graph(self):
         """
         Initialization code that is needed after params are re-loaded
@@ -466,7 +401,7 @@ class MappingRadEnv(gym.Env):
         self.diff = np.zeros((self.n_agents, self.n_agents, self.nx))
         self.r2 = np.zeros((self.n_agents, self.n_agents))
 
-        self.motion_edges, self.motion_dist = self._get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
+        self.motion_edges, self.motion_dist = _get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
                                                                     self_loops=True)
         # cache motion edges
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)

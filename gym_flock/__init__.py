@@ -1,6 +1,12 @@
 from gym.envs.registration import register
 
 register(
+    id='MappingAirsim-v0',
+    entry_point='gym_flock.envs.spatial:MappingAirsimEnv',
+    max_episode_steps=100,
+)
+
+register(
     id='Shepherding-v0',
     entry_point='gym_flock.envs.shepherding:ShepherdingEnv',
     max_episode_steps=1000,
