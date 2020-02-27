@@ -44,7 +44,7 @@ N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 20
+EPISODE_LENGTH = 30
 
 # parameters for map generation
 ranges = [(5, 30),  (35, 65), (70, 95)]
@@ -55,7 +55,7 @@ ranges = [(5, 30),  (35, 65), (70, 95)]
 OBST = gen_obstacle_grid(ranges)
 
 
-N_ROBOTS = 5
+N_ROBOTS = 4
 XMAX = 100
 YMAX = 100
 # XMAX = 200
@@ -363,6 +363,7 @@ class MappingRadEnv(gym.Env):
         Initialization code that is needed after params are re-loaded
         """
         targets = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), self.lattice_vectors)
+        targets += np.random.uniform(low=-0.1, high=0.1, size=np.shape(targets))
         targets = reject_collisions(targets, self.obstacles)
 
         self.n_targets = np.shape(targets)[0]
