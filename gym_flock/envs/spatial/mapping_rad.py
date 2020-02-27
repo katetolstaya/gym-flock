@@ -44,7 +44,7 @@ N_ACTIONS = 4
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 30
+EPISODE_LENGTH = 20
 
 # parameters for map generation
 ranges = [(5, 30),  (35, 65), (70, 95)]
