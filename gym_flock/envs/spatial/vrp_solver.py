@@ -19,7 +19,7 @@ def create_data_model(env):
 
     # get visitation of nodes
     penalty = np.logical_not(env.visited) * penalty_multiplier
-    penalty = np.append(penalty, [0.0])
+    penalty = np.insert(penalty, 0, 0.0)
     data['penalties'] = penalty
 
     # get map edges from env
@@ -77,7 +77,7 @@ def solve_vrp(env):
     routing.AddDimension(
         transit_callback_index,
         0,  # allow waiting time
-        int(data['episode_length']*0.6),  # maximum time per vehicle
+        int(data['episode_length']* 0.6),  # maximum time per vehicle
         # int(data['episode_length'] * 0.4),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
@@ -98,6 +98,13 @@ def solve_vrp(env):
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.SIMULATED_ANNEALING)
+    search_parameters.time_limit.seconds = 30
+    # search_parameters.first_solution_strategy = (
+    #     routing_enums_pb2.FirstSolutionStrategy.CHRISTOFIDES)
+    # which is the best? https://developers.google.com/optimization/routing/routing_options
 
     # Anytime search parameters:
     # search_parameters.time_limit.seconds = 30
