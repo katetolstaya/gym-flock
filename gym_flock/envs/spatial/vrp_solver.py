@@ -4,7 +4,7 @@ import numpy as np
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
-penalty_multiplier = 10
+penalty_multiplier = 500
 
 
 def create_data_model(env):
@@ -72,12 +72,12 @@ def solve_vrp(env):
 
     # Define cost of each arc.
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
+    # print(int(data['episode_length']))
     time_str = 'Time'
     routing.AddDimension(
         transit_callback_index,
         0,  # allow waiting time
-        int(data['episode_length']),  # maximum time per vehicle
+        int(data['episode_length'] * 0.4),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
     time_dimension = routing.GetDimensionOrDie(time_str)
