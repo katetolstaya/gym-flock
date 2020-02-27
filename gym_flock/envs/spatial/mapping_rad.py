@@ -45,7 +45,7 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 50
+EPISODE_LENGTH = 30
 
 # parameters for map generation
 # ranges = [(5, 30),  (35, 65), (70, 95)]
@@ -117,7 +117,8 @@ class MappingRadEnv(gym.Env):
         self.frac_active_targets = frac_active_targets
 
         # dynamics parameters
-        self.dt = 1.0
+        # self.dt = 1.0
+        self.dt = 2.0
         self.n_steps = 5
         self.ddt = self.dt / self.n_steps
         self.v_max = 5.0  # max velocity

@@ -15,7 +15,7 @@ env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 N = 100
 total_reward = 0
 
-optimal = True
+optimal = False
 
 # for each episode
 for _ in range(N):
