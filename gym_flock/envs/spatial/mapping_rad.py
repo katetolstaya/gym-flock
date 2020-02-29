@@ -82,8 +82,8 @@ FRAC_ACTIVE = 0.75
 unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
-# start_regions = [(0, 100, 0, 100)]
-start_regions = [(0, 35, 0, 35)]
+start_regions = [(0, 100, 0, 100)]
+# start_regions = [(0, 35, 0, 35)]
 
 
 class MappingRadEnv(gym.Env):
@@ -601,15 +601,16 @@ class MappingRadEnv(gym.Env):
         next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
         # next_loc = self.graph_previous[curr_loc - self.n_robots, next_loc - self.n_robots] + self.n_robots
 
-        u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
-        for i in range(self.n_robots):
-            u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
+        # # TODO this should work. why doesn't it??
+        # u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
+        # for i in range(self.n_robots):
+        #     u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
 
         # # now pick the closest immediate neighbor
         # # TODO - is this necessary? should be easier to grab the index of next_loc in mov_edges
-        # r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
-        #                    - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
-        #
-        # closest_neighbor = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+        r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
+                           - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
+
+        u_ind = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
 
         return u_ind
