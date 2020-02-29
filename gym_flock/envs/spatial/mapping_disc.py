@@ -45,16 +45,11 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 20
-# EARLY_TERMINATION = True
-EARLY_TERMINATION = False
-# EPISODE_LENGTH = 30
+EPISODE_LENGTH = 30
 
 # parameters for map generation
-ranges = [(5, 30),  (35, 65), (70, 95)]
-# ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
-
-
+# ranges = [(5, 30),  (35, 65), (70, 95)]
+ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
 # ranges = [(5, 65), (70, 130), (135, 195)]
 # ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
 # ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
@@ -78,19 +73,18 @@ FRAC_ACTIVE = 0.75
 # unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 70, 0, 70)]
 #
-# unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
-unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
+unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
+# unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 70)]
 
 # start_regions = [(30, 70, 30, 70)]
-# start_regions = [(0, 100, 0, 100)]
-start_regions = [(0, 35, 0, 35)]
+start_regions = [(0, 25, 0, 25)]
 
 
-class MappingRadEnv(gym.Env):
+class MappingDiscEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, obstacles=OBST, xmax=XMAX, ymax=YMAX):
         """Initialize the mapping environment
         """
-        super(MappingRadEnv, self).__init__()
+        super(MappingDiscEnv, self).__init__()
 
         self.y_min = 0
         self.x_min = 0
@@ -125,11 +119,10 @@ class MappingRadEnv(gym.Env):
         # dynamics parameters
         # self.dt = 1.0
         self.dt = 2.0
-        # self.dt = 3.0
         self.n_steps = 5
         self.ddt = self.dt / self.n_steps
-        self.v_max = 5.5  # max velocity
-        self.a_max = 5.5  # max acceleration
+        self.v_max = 5.0  # max velocity
+        self.a_max = 5.0  # max acceleration
         self.action_gain = 1.0  # controller gain
 
         # initialization parameters
@@ -142,7 +135,7 @@ class MappingRadEnv(gym.Env):
         self.comm_radius = 6.0
         self.motion_radius = 6.0
         self.obs_radius = 6.0
-        self.sensor_radius = 6.0  # 2.0
+        self.sensor_radius = 5.0  # 2.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -161,7 +154,6 @@ class MappingRadEnv(gym.Env):
         self.episode_length = EPISODE_LENGTH
         self.step_counter = 0
         self.n_motion_edges = 0
-        self.done = False
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -178,44 +170,31 @@ class MappingRadEnv(gym.Env):
         :return: described above
         """
 
-        # # action will be the index of the neighbor in the graph
-        # u_ind = np.reshape(u_ind, (-1, 1))
+        # action will be the index of the neighbor in the graph
+        u_ind = np.reshape(u_ind, (-1, 1))
         robots_index = np.reshape(range(self.n_robots), (-1, 1))
-        # u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
+        u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
-        for i in range(self.n_robots):
-            u_ind[i] = self.mov_edges[1][np.where(self.mov_edges[0] == i)][u_ind[i]]
-        u_ind = u_ind.flatten()
-        self.x[:self.n_robots, 0:2] = self.x[u_ind, 0:2]
+        for _ in range(self.n_steps):
+            diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
+            u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
 
-        # diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
-        # # u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
-        #
-        #
-        # self.x[:self.n_robots, 0:2] = self.x[u_ind, 0:2] + 0.1 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
+            if self.velocity_control:
+                u = self.action_gain * np.clip(u, a_min=-self.v_max, a_max=self.v_max)
+                self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + u[:, 0:2] * self.ddt
+            else:
+                u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
+                # position
+                self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + self.x[:self.n_robots, 2:4] * self.ddt \
+                                              + u[:, 0:2] * self.ddt * self.ddt * 0.5
+                # velocity
+                self.x[:self.n_robots, 2:4] = self.x[:self.n_robots, 2:4] + u[:, 0:2] * self.ddt
 
-        # # self.x[0:self.n_robots, 0:2] += np.random.uniform(low=-0.1, high=0.1, size=(self.n_robots, 2))
-        #
-        # for _ in range(self.n_steps):
-        #     diff = _get_pos_diff(self.x[:self.n_robots, 0:2], self.x[:, 0:2])
-        #     u = -1.0 * diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
-        #
-        #     if self.velocity_control:
-        #         u = self.action_gain * np.clip(u, a_min=-self.v_max, a_max=self.v_max)
-        #         self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + u[:, 0:2] * self.ddt
-        #     else:
-        #         u = self.action_gain * np.clip(u, a_min=-self.a_max, a_max=self.a_max)
-        #         # position
-        #         self.x[:self.n_robots, 0:2] = self.x[:self.n_robots, 0:2] + self.x[:self.n_robots, 2:4] * self.ddt \
-        #                                       + u[:, 0:2] * self.ddt * self.ddt * 0.5
-        #         # velocity
-        #         self.x[:self.n_robots, 2:4] = self.x[:self.n_robots, 2:4] + u[:, 0:2] * self.ddt
-        #
-        #         # clip velocity
-        #         self.x[:self.n_robots, 2:4] = np.clip(self.x[:self.n_robots, 2:4], -self.v_max, self.v_max)
+                # clip velocity
+                self.x[:self.n_robots, 2:4] = np.clip(self.x[:self.n_robots, 2:4], -self.v_max, self.v_max)
 
         obs, reward, done = self._get_obs_reward()
-        done = done or (EARLY_TERMINATION and self.done)
+
         return obs, reward, done, {}
 
     def _get_obs_reward(self):
@@ -229,6 +208,7 @@ class MappingRadEnv(gym.Env):
         reward - MDP reward at this step
         done - is this the last step of the episode?
         """
+
         # action edges from landmarks to robots
         action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
                                                  self.x[self.n_robots:, 0:2], allow_nearest=ALLOW_NEAREST)
@@ -237,16 +217,12 @@ class MappingRadEnv(gym.Env):
         self.mov_edges = action_edges
 
         # planning edges from robots to landmarks
-        # plan_edges, plan_dist = _get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
-        #                                          self.x[self.n_robots:, 0:2])
-        plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2],
+        plan_edges, plan_dist = _get_graph_edges(self.motion_radius, self.x[:self.n_robots, 0:2],
                                                  self.x[self.n_robots:, 0:2])
         plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
-        # self.mov_edges = plan_edges
-
         # communication edges among robots
-        # comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
+        comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
         # which landmarks is the robot observing?
         sensor_edges, _ = _get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
@@ -258,18 +234,9 @@ class MappingRadEnv(gym.Env):
         # senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0], self.motion_edges[0]))
         # receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1], self.motion_edges[1]))
         # edges = np.concatenate((plan_dist, action_dist, comm_dist, self.motion_dist)).reshape((-1, N_EDGE_FEAT))
-
-        # senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
-        # receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
-        # edges = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
-
-        senders = np.concatenate((plan_edges[0], action_edges[1]))
-        receivers = np.concatenate((plan_edges[1], action_edges[0]))
-        edges = np.concatenate((plan_dist, action_dist)).reshape((-1, N_EDGE_FEAT))
-
-        # senders = np.concatenate((plan_edges[0], plan_edges[1], comm_edges[0]))
-        # receivers = np.concatenate((plan_edges[1], plan_edges[0], comm_edges[1]))
-        # edges = np.concatenate((plan_dist, plan_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
+        senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
+        receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
+        edges = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # -1 indicates unused edges
@@ -313,8 +280,8 @@ class MappingRadEnv(gym.Env):
                                                   replace=False)
         # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
         self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
-        self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.1 * self.motion_radius,
-                                                              high=0.1 * self.motion_radius, size=(self.n_robots, 2))
+        self.x[:self.n_robots, 0:2] += self.np_random.uniform(low=-0.5 * self.motion_radius,
+                                                              high=0.5 * self.motion_radius, size=(self.n_robots, 2))
 
         # self.visited.fill(1)
         # self.visited[self.np_random.choice(self.n_targets, size=(int(self.n_targets * self.frac_active_targets),),
@@ -325,7 +292,6 @@ class MappingRadEnv(gym.Env):
 
         self.cached_solution = None
         self.step_counter = 0
-        self.done = False
         obs, _, _ = self._get_obs_reward()
         return obs
 
@@ -584,13 +550,11 @@ class MappingRadEnv(gym.Env):
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
             if self.cached_solution is None:
                 self.cached_solution = solve_vrp(self)
-            #self.cached_solution = solve_vrp(self)
 
             next_loc = np.zeros((self.n_robots,), dtype=int)
 
             for i in range(self.n_robots):
                 if len(self.cached_solution[i]) == 1:  # if out of vrp waypoints, use greedy waypoint
-                    self.done = True
                     next_loc[i] = greedy_loc[i]
                 else:  # use vrp solution
                     if curr_loc[i] == self.cached_solution[i][0]:
@@ -599,17 +563,12 @@ class MappingRadEnv(gym.Env):
 
         # use the precomputed predecessor matrix to select the next node - necessary for avoiding obstacles
         next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
-        # next_loc = self.graph_previous[curr_loc - self.n_robots, next_loc - self.n_robots] + self.n_robots
 
-        u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
-        for i in range(self.n_robots):
-            u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
+        # now pick the closest immediate neighbor
+        # TODO - is this necessary? should be easier to grab the index of next_loc in mov_edges
+        r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
+                           - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
 
-        # # now pick the closest immediate neighbor
-        # # TODO - is this necessary? should be easier to grab the index of next_loc in mov_edges
-        # r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
-        #                    - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
-        #
-        # closest_neighbor = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+        closest_neighbor = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
 
-        return u_ind
+        return closest_neighbor
