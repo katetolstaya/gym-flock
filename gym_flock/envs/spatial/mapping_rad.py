@@ -45,27 +45,27 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 20
+EPISODE_LENGTH = 40
 # EARLY_TERMINATION = True
 EARLY_TERMINATION = False
 # EPISODE_LENGTH = 30
 
 # parameters for map generation
-ranges = [(5, 30),  (35, 65), (70, 95)]
+# ranges = [(5, 30),  (35, 65), (70, 95)]
 # ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
 
 
 # ranges = [(5, 65), (70, 130), (135, 195)]
-# ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
+ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
 # ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
 
 OBST = gen_obstacle_grid(ranges)
 
-N_ROBOTS = 3
-XMAX = 100
-YMAX = 100
-# XMAX = 200
-# YMAX = 200
+N_ROBOTS = 5
+# XMAX = 100
+# YMAX = 100
+XMAX = 200
+YMAX = 200
 # XMAX = 400
 # YMAX = 400
 
@@ -75,14 +75,15 @@ FRAC_ACTIVE = 0.75
 # unvisited_regions = [(0, 200, 200, 400), (200, 400, 0, 200)]
 # start_regions = [(75, 125, 150, 200)]
 
-# unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
+unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 70, 0, 70)]
 #
 # unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
-unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
+# unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
-start_regions = [(0, 100, 0, 100)]
+# start_regions = [(0, 100, 0, 100)]
+start_regions = [(0, 70, 0, 70)]
 # start_regions = [(0, 35, 0, 35)]
 
 
@@ -139,10 +140,10 @@ class MappingRadEnv(gym.Env):
         self.y_max_init = 2.0
 
         # graph parameters
-        self.comm_radius = 6.0
-        self.motion_radius = 6.0
-        self.obs_radius = 6.0
-        self.sensor_radius = 6.0  # 2.0
+        self.comm_radius = 7.0
+        self.motion_radius = 7.0
+        self.obs_radius = 7.0
+        # self.sensor_radius = 5.0  # 2.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -180,7 +181,7 @@ class MappingRadEnv(gym.Env):
 
         # # action will be the index of the neighbor in the graph
         # u_ind = np.reshape(u_ind, (-1, 1))
-        robots_index = np.reshape(range(self.n_robots), (-1, 1))
+        # robots_index = np.reshape(range(self.n_robots), (-1, 1))
         # u_ind = np.reshape(self.mov_edges[1], (self.n_robots, self.n_actions))[robots_index, u_ind]
 
         for i in range(self.n_robots):
@@ -248,11 +249,8 @@ class MappingRadEnv(gym.Env):
         # communication edges among robots
         # comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
-        # which landmarks is the robot observing?
-        sensor_edges, _ = _get_graph_edges(self.sensor_radius, self.x[:self.n_robots, 0:2],
-                                           self.x[self.n_robots:, 0:2])
         old_sum = np.sum(self.visited[self.n_robots:])
-        self.visited[sensor_edges[1] + self.n_robots] = 1
+        self.visited[self.closest_targets] = 1
 
         # we want to fix the number of edges into the robot from targets.
         # senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0], self.motion_edges[0]))
@@ -584,33 +582,24 @@ class MappingRadEnv(gym.Env):
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
             if self.cached_solution is None:
                 self.cached_solution = solve_vrp(self)
-            #self.cached_solution = solve_vrp(self)
 
             next_loc = np.zeros((self.n_robots,), dtype=int)
 
             for i in range(self.n_robots):
-                if len(self.cached_solution[i]) == 1:  # if out of vrp waypoints, use greedy waypoint
-                    self.done = True
-                    next_loc[i] = greedy_loc[i]
-                else:  # use vrp solution
-                    if curr_loc[i] == self.cached_solution[i][0]:
+
+                if curr_loc[i] == self.cached_solution[i][0]:
+                    if len(self.cached_solution[i]) == 1:
+                        next_loc[i] = greedy_loc[i]
+                    else:
                         self.cached_solution[i] = self.cached_solution[i][1:]
+                        next_loc[i] = self.cached_solution[i][0]
+                else:
                     next_loc[i] = self.cached_solution[i][0]
 
         # use the precomputed predecessor matrix to select the next node - necessary for avoiding obstacles
         next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
-        # next_loc = self.graph_previous[curr_loc - self.n_robots, next_loc - self.n_robots] + self.n_robots
-
-        # # TODO this should work. why doesn't it??
-        # u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
-        # for i in range(self.n_robots):
-        #     u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
-
-        # # now pick the closest immediate neighbor
-        # # TODO - is this necessary? should be easier to grab the index of next_loc in mov_edges
-        r = np.linalg.norm(self.x[next_loc, 0:2].reshape((self.n_robots, 1, 2))
-                           - self.x[:, 0:2].reshape((1, self.n_agents, 2)), axis=2)
-
-        u_ind = np.argmin(np.reshape(r[self.mov_edges], (self.n_robots, N_ACTIONS)), axis=1)
+        u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
+        for i in range(self.n_robots):
+            u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
 
         return u_ind

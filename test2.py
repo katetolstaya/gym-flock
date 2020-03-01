@@ -12,10 +12,10 @@ keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 100
+N = 20
 total_reward = 0
 
-optimal = False
+optimal = True
 
 
 # for each episode
