@@ -45,11 +45,16 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 30
+EPISODE_LENGTH = 50
+# EARLY_TERMINATION = True
+EARLY_TERMINATION = False
+# EPISODE_LENGTH = 30
 
 # parameters for map generation
-# ranges = [(5, 30),  (35, 65), (70, 95)]
-ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
+ranges = [(5, 30),  (35, 65), (70, 95)]
+# ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
+
+
 # ranges = [(5, 65), (70, 130), (135, 195)]
 # ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
 # ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
@@ -73,10 +78,11 @@ FRAC_ACTIVE = 0.75
 # unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 70, 0, 70)]
 #
-unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
-# unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 70)]
+# unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
+unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
+# start_regions = [(0, 100, 0, 100)]
 start_regions = [(0, 25, 0, 25)]
 
 
@@ -117,12 +123,12 @@ class MappingDiscEnv(gym.Env):
         self.frac_active_targets = frac_active_targets
 
         # dynamics parameters
-        # self.dt = 1.0
-        self.dt = 2.0
+        self.dt = 1.0
+        # self.dt = 2.0
         self.n_steps = 5
         self.ddt = self.dt / self.n_steps
-        self.v_max = 5.0  # max velocity
-        self.a_max = 5.0  # max acceleration
+        self.v_max = 5.5  # max velocity
+        self.a_max = 5.5  # max acceleration
         self.action_gain = 1.0  # controller gain
 
         # initialization parameters
@@ -135,7 +141,7 @@ class MappingDiscEnv(gym.Env):
         self.comm_radius = 6.0
         self.motion_radius = 6.0
         self.obs_radius = 6.0
-        self.sensor_radius = 5.0  # 2.0
+        self.sensor_radius = 6.0  # 2.0
 
         # call helper function to initialize arrays
         # self.system_changed = True
@@ -154,6 +160,7 @@ class MappingDiscEnv(gym.Env):
         self.episode_length = EPISODE_LENGTH
         self.step_counter = 0
         self.n_motion_edges = 0
+        self.done = False
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -194,7 +201,7 @@ class MappingDiscEnv(gym.Env):
                 self.x[:self.n_robots, 2:4] = np.clip(self.x[:self.n_robots, 2:4], -self.v_max, self.v_max)
 
         obs, reward, done = self._get_obs_reward()
-
+        done = done or (EARLY_TERMINATION and self.done)
         return obs, reward, done, {}
 
     def _get_obs_reward(self):
@@ -292,6 +299,7 @@ class MappingDiscEnv(gym.Env):
 
         self.cached_solution = None
         self.step_counter = 0
+        self.done = False
         obs, _, _ = self._get_obs_reward()
         return obs
 
@@ -550,11 +558,13 @@ class MappingDiscEnv(gym.Env):
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
             if self.cached_solution is None:
                 self.cached_solution = solve_vrp(self)
+            #self.cached_solution = solve_vrp(self)
 
             next_loc = np.zeros((self.n_robots,), dtype=int)
 
             for i in range(self.n_robots):
                 if len(self.cached_solution[i]) == 1:  # if out of vrp waypoints, use greedy waypoint
+                    self.done = True
                     next_loc[i] = greedy_loc[i]
                 else:  # use vrp solution
                     if curr_loc[i] == self.cached_solution[i][0]:

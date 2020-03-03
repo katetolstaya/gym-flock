@@ -12,7 +12,7 @@ keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 20
+N = 50
 total_reward = 0
 
 # optimal = True
@@ -39,15 +39,16 @@ for _ in range(N):
                 continue
         else:
             # action = env.env.env.controller(random=True)
+            # action = env.env.env.controller(random=False, greedy=False)
             action = env.env.env.controller(random=False, greedy=True)
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
-        # visualize the environment
-        env.render()
-        time.sleep(0.125)
+        # # visualize the environment
+        # env.render()
+        # time.sleep(0.125)
 
     print(episode_reward)
     total_reward += episode_reward
