@@ -2,6 +2,7 @@ import gym
 from gym import spaces, error, utils
 from gym.utils import seeding
 import numpy as np
+import copy
 import configparser
 from os import path
 import matplotlib.pyplot as plt
@@ -176,10 +177,11 @@ class MappingRadEnv(gym.Env):
         """
         self.last_loc = self.closest_targets
 
+        next_loc = copy.copy(u_ind)
         for i in range(self.n_robots):
-            u_ind[i] = self.mov_edges[1][np.where(self.mov_edges[0] == i)][u_ind[i]]
-        u_ind = u_ind.flatten()
-        self.x[:self.n_robots, 0:2] = self.x[u_ind, 0:2]
+            next_loc[i] = self.mov_edges[1][np.where(self.mov_edges[0] == i)][u_ind[i]]
+
+        self.x[:self.n_robots, 0:2] = self.x[next_loc.flatten(), 0:2]
 
 
         obs, reward, done = self._get_obs_reward()
