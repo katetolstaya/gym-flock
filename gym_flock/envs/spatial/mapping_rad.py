@@ -46,7 +46,7 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 40
+EPISODE_LENGTH = 60
 # EARLY_TERMINATION = True
 EARLY_TERMINATION = False
 # EPISODE_LENGTH = 30
@@ -87,8 +87,8 @@ unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 200, 0, 200)]
 
 
-# start_regions = [(0, 70, 0, 70)]
-start_regions = [(0, 35, 0, 35)]
+start_regions = [(0, 70, 0, 70)]
+# start_regions = [(0, 35, 0, 35)]
 
 DELTA = 5.5
 
