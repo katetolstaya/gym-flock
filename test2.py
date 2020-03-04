@@ -12,7 +12,7 @@ keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 50
+N = 10
 total_reward = 0
 
 # optimal = True
@@ -39,7 +39,6 @@ for _ in range(N):
                 continue
         else:
             # action = env.env.env.controller(random=True)
-            # action = env.env.env.controller(random=False, greedy=False)
             action = env.env.env.controller(random=False, greedy=True)
 
         # simulate one step of the environment
