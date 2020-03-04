@@ -28,6 +28,7 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
+# N_NODE_FEAT = 3
 N_NODE_FEAT = 4
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
@@ -83,10 +84,10 @@ unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
-# start_regions = [(0, 200, 0, 200)]
+start_regions = [(0, 200, 0, 200)]
 
 
-start_regions = [(0, 70, 0, 70)]
+# start_regions = [(0, 70, 0, 70)]
 # start_regions = [(0, 35, 0, 35)]
 
 DELTA = 5.5

@@ -63,7 +63,7 @@ def send_loc_commands(client, names, home, loc, z):
                                              vehicle_name=names[i]))
     sleep(0.1)
     for f in fi:
-        f._timeout = 10  # quads sometimes get stuck during a crash and never reach the destination
+        f._timeout = 30  # quads sometimes get stuck during a crash and never reach the destination
         f.join()
 
 
@@ -82,6 +82,7 @@ def quaternion_to_yaw(q):
     cosy_cosp = +1.0 - 2.0 * (y * y + z * z)
     yaw = np.arctan2(siny_cosp, cosy_cosp)
     return yaw
+
 
 def parse_settings(fname):
     names = []

@@ -45,7 +45,7 @@ for _ in range(N):
 
         # visualize the environment
         env.render()
-        time.sleep(0.125)
+        # time.sleep(0.125)
 
     print(episode_reward)
     total_reward += episode_reward
