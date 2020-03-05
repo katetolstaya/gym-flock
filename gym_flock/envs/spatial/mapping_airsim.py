@@ -9,7 +9,7 @@ from gym_flock.envs.spatial.utils import _get_pos_diff
 from airsim.client import MultirotorClient
 
 # parameters for map generation
-ranges = [(5, 30),  (35, 65), (70, 95)]
+ranges = [(5, 30), (35, 65), (70, 95)]
 OBST = gen_obstacle_grid(ranges)
 
 XMAX = 100
@@ -18,8 +18,9 @@ YMAX = 100
 FRAC_ACTIVE = 0.5
 MIN_FRAC_ACTIVE = 0.5
 
-unvisited_regions = [(0, 35, 30, 100), (65, 100, 0, 35)]
-start_regions = [(0, 35, 0, 35)]
+# unvisited_regions = [(0, 35, 30, 100), (65, 100, 0, 35)]
+unvisited_regions = [(0, 100, 0, 100)]
+start_regions = [(0, 100, 0, 100)]
 
 
 class MappingAirsimEnv(MappingRadEnv):
@@ -29,7 +30,8 @@ class MappingAirsimEnv(MappingRadEnv):
         fname = '/home/kate/Documents/AirSim/settings.json'
         self.names, self.home = parse_settings(fname)
 
-        super(MappingAirsimEnv, self).__init__(n_robots=len(self.names), obstacles=OBST, xmax=XMAX, ymax=YMAX)
+        super(MappingAirsimEnv, self).__init__(n_robots=len(self.names), obstacles=OBST, xmax=XMAX, ymax=YMAX,
+                                               starts=start_regions, unvisiteds=unvisited_regions)
 
         # connect to the AirSim simulator
         self.client = MultirotorClient()
@@ -39,7 +41,7 @@ class MappingAirsimEnv(MappingRadEnv):
 
         self.z = np.linspace(start=-50, stop=-30, num=len(self.names))
         self.episode_length = 100000
-        self.v_max = 5.0
+        self.v_max = 10.0
 
     def reset(self):
         print('Re-setting drones...')
@@ -50,7 +52,8 @@ class MappingAirsimEnv(MappingRadEnv):
         self.last_loc = None
 
         # initialize robots near targets
-        nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,), replace=False)
+        nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
+                                                  replace=False)
         self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
 
         unvisited_targets = np.arange(self.n_targets)[self.unvisited_region] + self.n_robots
@@ -83,25 +86,28 @@ class MappingAirsimEnv(MappingRadEnv):
 
     def step(self, u_ind):
 
+        old_last_loc = self.last_loc
         self.last_loc = self.closest_targets
 
         # action will be the index of the neighbor in the graph
-        robots_index = np.reshape(range(self.n_robots), (-1, 1))
         next_loc = copy.copy(u_ind.reshape((-1, 1)))
         for i in range(self.n_robots):
             next_loc[i] = self.mov_edges[1][np.where(self.mov_edges[0] == i)][u_ind[i]]
 
-        diff = _get_pos_diff(self.actual_x, self.x[:, 0:2])
-        u = diff[robots_index, u_ind, 0:2].reshape((self.n_robots, 2))
+        self._update_states()
 
+        # proportional controller converts position offset to velocity commands
+        u = self.actual_x - np.reshape(self.x[next_loc, 0:2], (self.n_robots, 2))
         u = -1.0 * np.clip(u, a_min=-self.v_max, a_max=self.v_max)
-        u = np.reshape(u, (self.n_robots, 2))
+        send_velocity_commands(self.client, self.names, self.z, u, duration=0.1)
 
-        # send_loc_commands(self.client, self.names, self.home, new_waypoint, self.z)
-        send_velocity_commands(self.client, self.names, self.z, u, duration=0.01)
+        # next_waypoint = np.reshape(self.x[next_loc, 0:2], (self.n_robots, 2))
+        # send_loc_commands(self.client, self.names, self.home, next_waypoint, self.z)
 
         self._update_states()
 
+        # if stayed in the same spot, don't update last loc
+        self.last_loc = np.where(self.last_loc == self.closest_targets, old_last_loc, self.last_loc)
+
         obs, reward, done = self._get_obs_reward()
         return obs, reward, done, {}
-

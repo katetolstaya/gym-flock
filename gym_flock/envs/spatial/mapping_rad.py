@@ -94,7 +94,7 @@ DELTA = 5.5
 
 
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, obstacles=OBST, xmax=XMAX, ymax=YMAX):
+    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, obstacles=OBST, xmax=XMAX, ymax=YMAX, starts=start_regions, unvisiteds=unvisited_regions):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
@@ -106,6 +106,8 @@ class MappingRadEnv(gym.Env):
         self.x_max = xmax
         self.y_max = ymax
         self.obstacles = obstacles
+        self.start_ranges = starts
+        self.unvisited_ranges = unvisiteds
 
         # # triangular lattice
         # self.lattice_vectors = [
@@ -402,9 +404,9 @@ class MappingRadEnv(gym.Env):
         # initialize state matrices
         self.visited = np.ones((self.n_agents, 1))
 
-        self.unvisited_region = [in_obstacle(unvisited_regions, self.x[i, 0], self.x[i, 1]) for i in
+        self.unvisited_region = [in_obstacle(self.unvisited_ranges, self.x[i, 0], self.x[i, 1]) for i in
                                  range(self.n_robots, self.n_agents)]
-        self.start_region = [in_obstacle(start_regions, self.x[i, 0], self.x[i, 1]) for i in
+        self.start_region = [in_obstacle(self.start_ranges, self.x[i, 0], self.x[i, 1]) for i in
                              range(self.n_robots, self.n_agents)]
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))

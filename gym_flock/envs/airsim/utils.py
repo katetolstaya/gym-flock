@@ -54,7 +54,7 @@ def send_velocity_commands(client, names, z, u, duration=0.01):
         f.join()
 
 
-def send_loc_commands(client, names, home, loc, z):
+def send_loc_commands(client, names, home, loc, z, timeout=5):
     n_agents = len(names)
     fi = []
     for i in range(n_agents):
@@ -63,7 +63,7 @@ def send_loc_commands(client, names, home, loc, z):
                                              vehicle_name=names[i]))
     sleep(0.1)
     for f in fi:
-        f._timeout = 30  # quads sometimes get stuck during a crash and never reach the destination
+        f._timeout = timeout  # quads sometimes get stuck during a crash and never reach the destination
         f.join()
 
 
