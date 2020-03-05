@@ -30,8 +30,11 @@ font = {'family': 'sans-serif',
 # number of node and edge features
 # N_NODE_FEAT = 3
 N_NODE_FEAT = 4
+# N_EDGE_FEAT = 1
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
+DECAY_COEF = 1.0
+# DECAY_COEF = 0.9
 
 COMM_EDGES = False
 
@@ -208,7 +211,7 @@ class MappingRadEnv(gym.Env):
         self.visited[self.closest_targets] = 1
 
         if N_NODE_FEAT == 4:
-            self.node_history = 0.9 * self.node_history
+            self.node_history = DECAY_COEF * self.node_history
             self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:

@@ -41,7 +41,7 @@ class MappingAirsimEnv(MappingRadEnv):
 
         self.z = np.linspace(start=-50, stop=-30, num=len(self.names))
         self.episode_length = 100000
-        self.v_max = 10.0
+        self.v_max = 2.0
 
     def reset(self):
         print('Re-setting drones...')

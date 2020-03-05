@@ -16,7 +16,7 @@ N = 10
 total_reward = 0
 
 # optimal = True
-optimal = False
+optimal = True
 
 
 # for each episode
