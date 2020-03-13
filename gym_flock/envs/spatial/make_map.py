@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-    
+# from gym_flock.envs.spatial.utils import _get_graph_edges, _get_pos_diff
+from scipy.spatial import Delaunay
 
 def in_obstacle(obstacles, px, py):
     """
@@ -199,3 +200,33 @@ if __name__ == "__main__":
     plt.figure()
     plt.plot([p[1] for p in spots], [p[0] for p in spots], '.')
     plt.show()
+
+
+def generate_geometric_roads(n_cities, world_radius, road_radius):
+    vertices = np.random.uniform(0.0, world_radius, size=(n_cities, 2))
+    # edges, _ = _get_graph_edges(intercity_radius, cities, self_loops=True)
+
+    # Build template graph on vertices using a Delauany triangulation and recover
+    # the undirected edge list.
+    tri = Delaunay(vertices)
+    (indices, indptr) = tri.vertex_neighbor_vertices
+    edges = []
+    for i in range(vertices.shape[0]):
+        for j in indptr[indices[i]:indices[i+1]]:
+            if i < j:
+                edges.append((i, j))
+    # edge_list = np.array(edge_list)
+    # edges = edge_list[edge_list[:,0] < edge_list[:,1]]
+
+    extra_waypoints = []
+    for (sender, receiver) in edges:
+        p1 = np.reshape(vertices[sender, :], (1, 2))
+        p2 = np.reshape(vertices[receiver, :], (1, 2))
+        dist = np.linalg.norm(p1 - p2)
+        n_new_points = int(dist/road_radius)
+        extra_waypoints.extend([p1 + (p2-p1)/dist * n * road_radius for n in range(n_new_points)])
+    all_waypoints = np.vstack([vertices, np.vstack(extra_waypoints)])
+    return all_waypoints
+
+
+

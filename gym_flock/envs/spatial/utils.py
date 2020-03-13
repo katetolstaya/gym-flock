@@ -1,4 +1,8 @@
 import numpy as np
+# from scipy.spatial import cKDTree as KDTree
+
+# TODO speed up these functions using SciPy KDTree like in
+# https://networkx.github.io/documentation/stable/_modules/networkx/generators/geometric.html#random_geometric_graph
 
 
 def _get_graph_edges(rad, pos1, pos2=None, self_loops=False):
@@ -65,5 +69,6 @@ def _get_k_edges(k, pos1, pos2=None, self_loops=False, allow_nearest=False):
 
     edges = np.nonzero(mask)
     return edges, r[edges]
+
 
 
