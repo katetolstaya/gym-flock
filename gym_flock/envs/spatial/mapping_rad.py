@@ -95,7 +95,7 @@ unvisited_regions = [(0, 200, 0, 200)]
 # start_regions = [(30, 70, 30, 70)]
 # start_regions = [(0, 200, 0, 200)]
 # start_regions = [(0, 100, 0, 100)]
-start_regions = [(75, 125, 75, 125)]
+start_regions = [(50, 150, 50, 150)]
 
 
 # start_regions = [(0, 70, 0, 70)]
