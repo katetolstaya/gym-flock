@@ -44,7 +44,7 @@ COMM_EDGES = False
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 500
+MAX_NODES = 300
 MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
@@ -71,10 +71,10 @@ OBST = gen_obstacle_grid(ranges)
 
 # N_ROBOTS = 5
 N_ROBOTS = 3
-XMAX = 100
-YMAX = 100
-# XMAX = 200
-# YMAX = 200
+# XMAX = 100
+# YMAX = 100
+XMAX = 200
+YMAX = 200
 # XMAX = 400
 # YMAX = 400
 
@@ -85,7 +85,7 @@ MIN_FRAC_ACTIVE = 0.5
 # unvisited_regions = [(0, 200, 200, 400), (200, 400, 0, 200)]
 # start_regions = [(75, 125, 150, 200)]
 
-unvisited_regions = [(0, 100, 0, 100)]
+unvisited_regions = [(0, 200, 0, 200)]
 # unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 70, 0, 70)]
 #
@@ -282,8 +282,27 @@ class MappingRadEnv(gym.Env):
         Reset system state. Agents are initialized in a square with side self.r_max
         :return: observations, adjacency matrix
         """
-        # self._initialize_graph()
+
+        if self.fig is not None:
+            plt.close(self.fig)
+
+        # plotting and seeding parameters
+        self.fig = None
+        self.ax = None
+        self.line1 = None
+        self.line2 = None
+        self.line3 = None
+        self.cached_solution = None
+        self.graph_previous = None
+        self.graph_cost = None
+
+        self.step_counter = 0
+        self.n_motion_edges = 0
+        self.done = False
         self.last_loc = None
+        self.node_history = None
+
+        self._initialize_graph()
 
         # initialize robots near targets
         nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
