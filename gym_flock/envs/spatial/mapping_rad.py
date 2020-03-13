@@ -44,7 +44,7 @@ COMM_EDGES = False
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 500
+MAX_NODES = 700
 MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
