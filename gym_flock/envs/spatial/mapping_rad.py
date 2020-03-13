@@ -44,7 +44,7 @@ COMM_EDGES = False
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 400
+MAX_NODES = 500
 MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
@@ -70,11 +70,11 @@ ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
 OBST = gen_obstacle_grid(ranges)
 
 # N_ROBOTS = 5
-N_ROBOTS = 3
+N_ROBOTS = 5
 # XMAX = 100
 # YMAX = 100
-XMAX = 100
-YMAX = 100
+XMAX = 200
+YMAX = 200
 # XMAX = 400
 # YMAX = 400
 
@@ -93,7 +93,9 @@ unvisited_regions = [(0, 200, 0, 200)]
 # unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
-start_regions = [(0, 200, 0, 200)]
+# start_regions = [(0, 200, 0, 200)]
+# start_regions = [(0, 100, 0, 100)]
+start_regions = [(75, 125, 75, 125)]
 
 
 # start_regions = [(0, 70, 0, 70)]
@@ -402,10 +404,10 @@ class MappingRadEnv(gym.Env):
         lattice = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), self.lattice_vectors)
         # targets = reject_collisions(targets, self.obstacles)
 
-        n_cities = 5
+        n_cities = 9
         # intercity_radius = self.x_max/6
         roads = generate_geometric_roads(n_cities, self.x_max, self.motion_radius)
-        flag = np.min(np.linalg.norm(_get_pos_diff(lattice, roads), axis=2), axis=1) <= (self.motion_radius / 1.4)
+        flag = np.min(np.linalg.norm(_get_pos_diff(lattice, roads), axis=2), axis=1) <= (self.motion_radius/1.4)
         targets = lattice[flag, :]
 
         r = np.linalg.norm(_get_pos_diff(targets), axis=2)
