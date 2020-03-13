@@ -73,8 +73,8 @@ OBST = gen_obstacle_grid(ranges)
 N_ROBOTS = 3
 # XMAX = 100
 # YMAX = 100
-XMAX = 200
-YMAX = 200
+XMAX = 100
+YMAX = 100
 # XMAX = 400
 # YMAX = 400
 
@@ -205,16 +205,16 @@ class MappingRadEnv(gym.Env):
         """
         # action edges from landmarks to robots
         action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                 self.x[self.n_robots:, 0:2], allow_nearest=ALLOW_NEAREST)
+                                                 self.x[self.n_robots:self.n_agents, 0:2], allow_nearest=ALLOW_NEAREST)
         action_edges = (action_edges[0], action_edges[1] + self.n_robots)
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
         self.mov_edges = action_edges
 
         # planning edges from robots to landmarks
-        plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2], self.x[self.n_robots:, 0:2])
+        plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2], self.x[self.n_robots:self.n_agents, 0:2])
         plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
 
-        old_sum = np.sum(self.visited[self.n_robots:])
+        old_sum = np.sum(self.visited[self.n_robots:self.n_agents])
         self.visited[self.closest_targets] = 1
 
         if N_NODE_FEAT == 4:
@@ -253,7 +253,7 @@ class MappingRadEnv(gym.Env):
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
         self.receivers[self.n_motion_edges:] = -1
-        self.nodes.fill(-1)
+        self.nodes.fill(0)
 
         self.senders[-len(senders):] = senders
         self.receivers[-len(receivers):] = receivers
