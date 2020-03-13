@@ -17,7 +17,6 @@ total_reward = 0
 
 optimal = True
 # optimal = False
-print(env.observation_space)
 
 # for each episode
 for _ in range(N):
@@ -43,7 +42,6 @@ for _ in range(N):
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)
-        print(np.shape(obs))
         episode_reward += reward
 
         # visualize the environment

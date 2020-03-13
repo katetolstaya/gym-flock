@@ -44,8 +44,8 @@ COMM_EDGES = False
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 1500
-MAX_EDGES = 4
+MAX_NODES = 500
+MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
@@ -53,7 +53,7 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 40
+EPISODE_LENGTH = 30
 # EARLY_TERMINATION = True
 EARLY_TERMINATION = False
 # EPISODE_LENGTH = 30
@@ -282,6 +282,7 @@ class MappingRadEnv(gym.Env):
         Reset system state. Agents are initialized in a square with side self.r_max
         :return: observations, adjacency matrix
         """
+        # self._initialize_graph()
         self.last_loc = None
 
         # initialize robots near targets
