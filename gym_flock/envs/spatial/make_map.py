@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
 
 def generate_geometric_roads(n_cities, world_radius, road_radius):
-    vertices = np.random.uniform(0.0, world_radius, size=(n_cities, 2))
+    vertices = np.random.uniform(-world_radius/2, world_radius/2, size=(n_cities, 2))
     # edges, _ = _get_graph_edges(intercity_radius, cities, self_loops=True)
 
     # Build template graph on vertices using a Delauany triangulation and recover

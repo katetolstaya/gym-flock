@@ -5,7 +5,8 @@ import numpy as np
 import time
 
 # Initialize the gym environment
-env_name = "MappingAirsim-v0"
+# env_name = "MappingAirsim-v0"
+env_name = "MappingARL-v0"
 # env_name = "Shepherding-v0"
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
@@ -45,7 +46,7 @@ for _ in range(N):
 
         # visualize the environment
         env.render()
-        # time.sleep(0.125)
+        time.sleep(5.0)
 
     print(episode_reward)
     total_reward += episode_reward

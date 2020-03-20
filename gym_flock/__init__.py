@@ -7,6 +7,13 @@ register(
 )
 
 register(
+    id='MappingARL-v0',
+    entry_point='gym_flock.envs.spatial:MappingARLEnv',
+    max_episode_steps=100000,
+)
+
+
+register(
     id='Shepherding-v0',
     entry_point='gym_flock.envs.shepherding:ShepherdingEnv',
     max_episode_steps=1000,

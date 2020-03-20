@@ -54,6 +54,7 @@ GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
 EPISODE_LENGTH = 30
+# EPISODE_LENGTH = 100
 # EARLY_TERMINATION = True
 EARLY_TERMINATION = False
 # EPISODE_LENGTH = 30
@@ -67,7 +68,9 @@ EARLY_TERMINATION = False
 ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
 # ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
 
-OBST = gen_obstacle_grid(ranges)
+# OBST = gen_obstacle_grid(ranges)
+
+OBST = []
 
 # N_ROBOTS = 5
 N_ROBOTS = 5
@@ -113,10 +116,10 @@ class MappingRadEnv(gym.Env):
 
         self.episode_length = EPISODE_LENGTH
 
-        self.y_min = 0
-        self.x_min = 0
-        self.x_max = xmax
-        self.y_max = ymax
+        self.y_min = -ymax/2
+        self.x_min = -xmax/2
+        self.x_max = xmax/2
+        self.y_max = ymax/2
         self.obstacles = obstacles
         self.start_ranges = starts
         self.unvisited_ranges = unvisiteds
@@ -306,12 +309,12 @@ class MappingRadEnv(gym.Env):
 
         self._initialize_graph()
 
-        # initialize robots near targets
-        nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
-                                                  replace=False)
-        # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
-        self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
-
+        # # initialize robots near targets
+        # nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
+        #                                           replace=False)
+        # # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
+        # self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
+        #
         unvisited_targets = np.arange(self.n_targets)[self.unvisited_region] + self.n_robots
         frac_active = np.random.uniform(low=MIN_FRAC_ACTIVE, high=self.frac_active_targets)
         random_unvisited_targets = self.np_random.choice(unvisited_targets,
@@ -451,8 +454,10 @@ class MappingRadEnv(gym.Env):
 
         self.unvisited_region = [in_obstacle(self.unvisited_ranges, self.x[i, 0], self.x[i, 1]) for i in
                                  range(self.n_robots, self.n_agents)]
-        self.start_region = [in_obstacle(self.start_ranges, self.x[i, 0], self.x[i, 1]) for i in
-                             range(self.n_robots, self.n_agents)]
+        # self.start_region = [in_obstacle(self.start_ranges, self.x[i, 0], self.x[i, 1]) for i in
+        #                      range(self.n_robots, self.n_agents)]
+
+        self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
