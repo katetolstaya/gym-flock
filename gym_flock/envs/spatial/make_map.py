@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-# from gym_flock.envs.spatial.utils import _get_graph_edges, _get_pos_diff
+from gym_flock.envs.spatial.utils import _get_pos_diff
 from scipy.spatial import Delaunay
+# from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff
 
 def in_obstacle(obstacles, px, py):
     """
@@ -203,7 +204,7 @@ if __name__ == "__main__":
 
 
 def generate_geometric_roads(n_cities, world_radius, road_radius):
-    vertices = np.random.uniform(-world_radius/2, world_radius/2, size=(n_cities, 2))
+    vertices = np.random.uniform(-world_radius, world_radius, size=(n_cities, 2))
     # edges, _ = _get_graph_edges(intercity_radius, cities, self_loops=True)
 
     # Build template graph on vertices using a Delauany triangulation and recover
@@ -227,6 +228,10 @@ def generate_geometric_roads(n_cities, world_radius, road_radius):
         extra_waypoints.extend([p1 + (p2-p1)/dist * n * road_radius for n in range(n_new_points)])
     all_waypoints = np.vstack([vertices, np.vstack(extra_waypoints)])
     return all_waypoints
+
+
+
+
 
 
 

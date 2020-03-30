@@ -17,6 +17,7 @@ N = 100
 total_reward = 0
 
 optimal = False
+# optimal = True
 
 # for each episode
 for _ in range(N):
@@ -46,7 +47,7 @@ for _ in range(N):
 
         # visualize the environment
         env.render()
-        time.sleep(5.0)
+        # time.sleep(5.0)
 
     print(episode_reward)
     total_reward += episode_reward

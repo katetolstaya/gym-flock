@@ -7,7 +7,7 @@ from mav_manager.srv import Vec4Request, Vec4
 from geometry_msgs.msg import PoseStamped
 # from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
 
-n_robots = 5
+n_robots = 10
 x = np.zeros((n_robots, 2))
 names = ['quadrotor' + str(i + 1) for i in range(n_robots)]
 
@@ -16,7 +16,7 @@ rospy.init_node('gnn')
 r = rospy.Rate(10.0)
 
 env_name = "MappingARL-v0"
-# TODO set the number of robots to 5
+
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
@@ -37,8 +37,6 @@ for i, name in enumerate(names):
 services = [rospy.ServiceProxy("/" + name + "/mav_services/goTo", Vec4) for name in names]
 
 while True:
-
-    print(x)
 
     # update state and get new observation
     arl_env.update_state(x)
@@ -71,4 +69,5 @@ while True:
 
     arl_env.last_loc = np.where(arl_env.last_loc == arl_env.closest_targets, old_last_loc, arl_env.last_loc)
 
+    env.render()
     r.sleep()

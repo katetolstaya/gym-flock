@@ -37,14 +37,13 @@ N_NODE_FEAT = 4
 # N_EDGE_FEAT = 1
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
-DECAY_COEF = 1.0
-# DECAY_COEF = 0.9
 
 COMM_EDGES = False
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 700
+MAX_NODES = 1000
+# MAX_NODES = 1300
 MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
@@ -53,31 +52,21 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 # GREEDY_CONTROLLER = True
 
-EPISODE_LENGTH = 30
-# EPISODE_LENGTH = 100
+# EPISODE_LENGTH = 30
+EPISODE_LENGTH = 50
 # EARLY_TERMINATION = True
 EARLY_TERMINATION = False
 # EPISODE_LENGTH = 30
-
-# parameters for map generation
-# ranges = [(5, 30),  (35, 65), (70, 95)]
-# ranges = [(5, 25), (30, 50), (57, 75), (80, 95)]
-
-
-# ranges = [(5, 65), (70, 130), (135, 195)]
-ranges = [(5, 50), (55, 100), (110, 150), (160, 195)]
-# ranges = [(5, 50), (55, 100), (105, 150), (155, 195),(205, 250), (260, 300), (310, 355), (360, 395)]
-
-# OBST = gen_obstacle_grid(ranges)
-
-OBST = []
 
 # N_ROBOTS = 5
 N_ROBOTS = 5
 # XMAX = 100
 # YMAX = 100
-XMAX = 200
-YMAX = 200
+# XMAX = 200
+# YMAX = 200
+
+XMAX = 120
+YMAX = 120
 # XMAX = 400
 # YMAX = 400
 
@@ -88,7 +77,7 @@ MIN_FRAC_ACTIVE = 0.5
 # unvisited_regions = [(0, 200, 200, 400), (200, 400, 0, 200)]
 # start_regions = [(75, 125, 150, 200)]
 
-unvisited_regions = [(0, 200, 0, 200)]
+unvisited_regions = [(-100, 100, -100, 100)]
 # unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
 # start_regions = [(0, 70, 0, 70)]
 #
@@ -96,9 +85,9 @@ unvisited_regions = [(0, 200, 0, 200)]
 # unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
 
 # start_regions = [(30, 70, 30, 70)]
-# start_regions = [(0, 200, 0, 200)]
+start_regions = [(-100, 100, -100, 100)]
 # start_regions = [(0, 100, 0, 100)]
-start_regions = [(50, 150, 50, 150)]
+# start_regions = [(50, 150, 50, 150)]
 
 
 # start_regions = [(0, 70, 0, 70)]
@@ -107,8 +96,9 @@ start_regions = [(50, 150, 50, 150)]
 DELTA = 5.5
 
 
+
 class MappingRadEnv(gym.Env):
-    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, obstacles=OBST, xmax=XMAX, ymax=YMAX,
+    def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
                  starts=start_regions, unvisiteds=unvisited_regions):
         """Initialize the mapping environment
         """
@@ -116,11 +106,13 @@ class MappingRadEnv(gym.Env):
 
         self.episode_length = EPISODE_LENGTH
 
-        self.y_min = -ymax/2
-        self.x_min = -xmax/2
-        self.x_max = xmax/2
-        self.y_max = ymax/2
-        self.obstacles = obstacles
+        self.y_min = -ymax
+        self.x_min = -xmax
+        self.x_max = xmax
+        self.y_max = ymax
+
+        self.res = DELTA
+
         self.start_ranges = starts
         self.unvisited_ranges = unvisiteds
 
@@ -223,7 +215,7 @@ class MappingRadEnv(gym.Env):
         self.visited[self.closest_targets] = 1
 
         if N_NODE_FEAT == 4:
-            self.node_history = DECAY_COEF * self.node_history
+            self.node_history = self.node_history
             self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:
@@ -240,7 +232,10 @@ class MappingRadEnv(gym.Env):
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # TODO the reciprocal of distance necessary?
-        edges_dist = (DELTA + 1.0) / (edges_dist + 1.0)
+        # edges_dist = (DELTA + 1.0) / (edges_dist + 1.0)
+        # edges_dist = (DELTA + 1.0) / (edges_dist/(self.res*self.res)*(DELTA * DELTA) + 1.0)
+        # edges_dist = (self.res * self.res + 1.0) / (edges_dist/(self.res*self.res)*(DELTA * DELTA) + 1.0)
+        edges_dist = edges_dist/(self.res*self.res)
 
         if N_EDGE_FEAT == 2:
             # TODO is the edge history necessary as a form of memory?
@@ -252,8 +247,12 @@ class MappingRadEnv(gym.Env):
                                                    (-1, 1)))
                     last_edges = last_edges.reshape((-1, 1))
             edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
+            # edges[:, 0].fill(0)
+            # edges[:, 1].fill(1)
+
         else:
             edges = edges_dist.reshape((-1, N_EDGE_FEAT))
+            # edges[:, 0].fill(1)
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -309,12 +308,12 @@ class MappingRadEnv(gym.Env):
 
         self._initialize_graph()
 
-        # # initialize robots near targets
-        # nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
-        #                                           replace=False)
-        # # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
-        # self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
-        #
+        # initialize robots near targets
+        nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
+                                                  replace=False)
+        # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
+        self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
+
         unvisited_targets = np.arange(self.n_targets)[self.unvisited_region] + self.n_robots
         frac_active = np.random.uniform(low=MIN_FRAC_ACTIVE, high=self.frac_active_targets)
         random_unvisited_targets = self.np_random.choice(unvisited_targets,
@@ -364,8 +363,8 @@ class MappingRadEnv(gym.Env):
                                   linewidth=0)
 
             # set plot limits, axis parameters, title
-            plt.xlim(self.x_min, self.x_max)
-            plt.ylim(self.y_min, self.y_max)
+            # plt.xlim(self.x_min, self.x_max)
+            # plt.ylim(self.y_min, self.y_max)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
@@ -404,21 +403,20 @@ class MappingRadEnv(gym.Env):
         """
         Initialization code that is needed after params are re-loaded
         """
-        lattice = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), self.lattice_vectors)
-        # targets = reject_collisions(targets, self.obstacles)
 
-        n_cities = 9
+        lattice = generate_lattice((self.x_min, self.x_max, self.y_min, self.y_max), self.lattice_vectors)
+
+        n_cities = 12
         # intercity_radius = self.x_max/6
         roads = generate_geometric_roads(n_cities, self.x_max, self.motion_radius)
-        flag = np.min(np.linalg.norm(_get_pos_diff(lattice, roads), axis=2), axis=1) <= (self.motion_radius/1.4)
+        flag = np.min(np.linalg.norm(_get_pos_diff(lattice, roads), axis=2), axis=1) <= (self.motion_radius / 1.4)
         targets = lattice[flag, :]
-
         r = np.linalg.norm(_get_pos_diff(targets), axis=2)
         r[r > self.motion_radius] = 0
         _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
         targets = targets[labels == np.argmax(np.bincount(labels)), :]
 
-        # targets += np.random.uniform(low=-0.2, high=0.2, size=np.shape(targets))
+        # print(np.shape(targets))
 
         self.n_targets = np.shape(targets)[0]
         self.n_agents = self.n_targets + self.n_robots
@@ -458,6 +456,8 @@ class MappingRadEnv(gym.Env):
         #                      range(self.n_robots, self.n_agents)]
 
         self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
+
+        # self.start_region = [True] * (self.n_agents - self.n_robots)
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
@@ -505,7 +505,10 @@ class MappingRadEnv(gym.Env):
         np.fill_diagonal(prev, np.array(range(self.n_targets)))
 
         changed_last_iter = True  # prevents looping forever in disconnected graphs
+        # i=0
         while changed_last_iter and np.sum(time_matrix) == np.Inf:
+            # i+=1
+            # print(i)
             changed_last_iter = False
             for (sender, receiver) in zip(edges[0], edges[1]):
                 new_cost = np.minimum(time_matrix[:, sender] + edge_time, time_matrix[:, receiver])
@@ -522,11 +525,11 @@ class MappingRadEnv(gym.Env):
     def unpack_obs(obs, ob_space):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
-        # assume flattened box
-        if PAD_NODES:
-            n_nodes = MAX_NODES
-        else:
-            n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        # # assume flattened box
+        # if PAD_NODES:
+        #     n_nodes = MAX_NODES
+        # else:
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = N_EDGE_FEAT
