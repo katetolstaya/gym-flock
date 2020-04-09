@@ -6,18 +6,18 @@ import time
 
 # Initialize the gym environment
 # env_name = "MappingAirsim-v0"
-env_name = "MappingARL-v0"
+env_name = "MappingARLPartial-v0"
 # env_name = "Shepherding-v0"
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 100
+N = 20
 total_reward = 0
 
-optimal = False
-# optimal = True
+# optimal = False
+optimal = True
 
 # for each episode
 for _ in range(N):

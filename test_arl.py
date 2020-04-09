@@ -11,6 +11,8 @@ n_robots = 10
 x = np.zeros((n_robots, 2))
 names = ['quadrotor' + str(i + 1) for i in range(n_robots)]
 
+altitudes = np.linspace(start=3.0, stop=8.0, num=n_robots)
+
 rospy.init_node('gnn')
 # TODO smaller rate here?
 r = rospy.Rate(10.0)
@@ -59,7 +61,7 @@ while True:
     # send new waypoints
     for i, service in enumerate(services):
         # TODO convert GNN output to next location
-        goal_position = [loc_commands[i, 0], loc_commands[i, 1], 5.0, -1.57]
+        goal_position = [loc_commands[i, 0], loc_commands[i, 1], altitudes[i], -1.57]
         # goal_position = [x[i, 0]+0.1, x[i, 1], 5.0, -1.57]
         goal_position = Vec4Request(goal_position)
         try:

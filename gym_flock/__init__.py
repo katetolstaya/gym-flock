@@ -14,6 +14,13 @@ register(
 
 
 register(
+    id='MappingARLPartial-v0',
+    entry_point='gym_flock.envs.spatial:MappingARLPartialEnv',
+    max_episode_steps=100000,
+)
+
+
+register(
     id='Shepherding-v0',
     entry_point='gym_flock.envs.shepherding:ShepherdingEnv',
     max_episode_steps=1000,

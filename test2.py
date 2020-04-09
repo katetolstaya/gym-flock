@@ -3,26 +3,30 @@ import gym_flock
 import configparser
 import numpy as np
 import time
+import scipy
 
 # Initialize the gym environment
-env_name = "MappingRad-v0"
-# env_name = "Shepherding-v0"
+# env_name = "MappingRad-v0"
+env_name = "MappingARLPartial-v0"
+
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 5
+N = 10
 total_reward = 0
 
-optimal = True
-# optimal = False
+# optimal = True
+optimal = False
+
+print('Initialized')
 
 # for each episode
 for _ in range(N):
     # reset the environment
     obs = env.reset()
-    # env.render()
+    env.render()
     episode_reward = 0
 
     # simulate episode until done

@@ -32,11 +32,13 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
-# N_NODE_FEAT = 3
-N_NODE_FEAT = 4
+N_NODE_FEAT = 3
+# N_NODE_FEAT = 4
 # N_EDGE_FEAT = 1
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
+
+NEARBY_STARTS = False
 
 COMM_EDGES = False
 
@@ -44,7 +46,7 @@ COMM_EDGES = False
 PAD_NODES = True
 MAX_NODES = 1000
 # MAX_NODES = 1300
-MAX_EDGES = 3
+MAX_EDGES = 4
 
 # number of edges/actions for each robot, fixed
 N_ACTIONS = 4
@@ -99,19 +101,19 @@ DELTA = 5.5
 
 class MappingRadEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
-                 starts=start_regions, unvisiteds=unvisited_regions):
+                 starts=start_regions, unvisiteds=unvisited_regions, init_graph=True, episode_length=EPISODE_LENGTH, res=DELTA):
         """Initialize the mapping environment
         """
         super(MappingRadEnv, self).__init__()
 
-        self.episode_length = EPISODE_LENGTH
+        self.episode_length = episode_length
 
         self.y_min = -ymax
         self.x_min = -xmax
         self.x_max = xmax
         self.y_max = ymax
 
-        self.res = DELTA
+        self.res = res
 
         self.start_ranges = starts
         self.unvisited_ranges = unvisiteds
@@ -141,14 +143,17 @@ class MappingRadEnv(gym.Env):
 
         # graph parameters
         self.comm_radius = 20.0
-        self.motion_radius = 7.0
-        self.obs_radius = 7.0
+        self.motion_radius = self.res * 1.2
+        self.obs_radius = self.res * 1.2
 
         # call helper function to initialize arrays
-        self._initialize_graph()
+        if init_graph:
+            self._initialize_graph()
 
         # plotting and seeding parameters
+        self.episode_reward = 0
         self.fig = None
+        self._plot_text = None
         self.ax = None
         self.line1 = None
         self.line2 = None
@@ -215,7 +220,6 @@ class MappingRadEnv(gym.Env):
         self.visited[self.closest_targets] = 1
 
         if N_NODE_FEAT == 4:
-            self.node_history = self.node_history
             self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:
@@ -231,11 +235,8 @@ class MappingRadEnv(gym.Env):
             edges_dist = np.concatenate((plan_dist, action_dist)).reshape((-1, 1))
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
-        # TODO the reciprocal of distance necessary?
-        # edges_dist = (DELTA + 1.0) / (edges_dist + 1.0)
-        # edges_dist = (DELTA + 1.0) / (edges_dist/(self.res*self.res)*(DELTA * DELTA) + 1.0)
-        # edges_dist = (self.res * self.res + 1.0) / (edges_dist/(self.res*self.res)*(DELTA * DELTA) + 1.0)
-        edges_dist = edges_dist/(self.res*self.res)
+        # normalize the edge distance by resolution
+        edges_dist = edges_dist/self.res
 
         if N_EDGE_FEAT == 2:
             # TODO is the edge history necessary as a form of memory?
@@ -246,9 +247,10 @@ class MappingRadEnv(gym.Env):
                                                np.logical_and(receivers == i, senders == self.last_loc[i]).reshape(
                                                    (-1, 1)))
                     last_edges = last_edges.reshape((-1, 1))
+
             edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
             # edges[:, 0].fill(0)
-            # edges[:, 1].fill(1)
+            # edges[:, 1].fill(1/self.res)
 
         else:
             edges = edges_dist.reshape((-1, N_EDGE_FEAT))
@@ -270,7 +272,8 @@ class MappingRadEnv(gym.Env):
         if N_NODE_FEAT == 4:
             self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
-        step_array = np.array([self.step_counter]).reshape((1, 1))
+        # step_array = np.array([self.step_counter]).reshape((1, 1))
+        step_array = np.array([0.0]).reshape((1, 1))
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
                'step': step_array}
@@ -279,6 +282,7 @@ class MappingRadEnv(gym.Env):
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         reward = np.sum(self.visited[self.n_robots:]) - old_sum
+        self.episode_reward += reward
         return obs, reward, done
 
     def reset(self):
@@ -292,6 +296,7 @@ class MappingRadEnv(gym.Env):
 
         # plotting and seeding parameters
         self.fig = None
+        self._plot_text = None
         self.ax = None
         self.line1 = None
         self.line2 = None
@@ -300,6 +305,7 @@ class MappingRadEnv(gym.Env):
         self.graph_previous = None
         self.graph_cost = None
 
+        self.episode_reward = 0
         self.step_counter = 0
         self.n_motion_edges = 0
         self.done = False
@@ -315,9 +321,9 @@ class MappingRadEnv(gym.Env):
         self.x[:self.n_robots, 0:2] = self.x[nearest_landmarks + self.n_robots, 0:2]
 
         unvisited_targets = np.arange(self.n_targets)[self.unvisited_region] + self.n_robots
-        frac_active = np.random.uniform(low=MIN_FRAC_ACTIVE, high=self.frac_active_targets)
+        # frac_active = np.random.uniform(low=MIN_FRAC_ACTIVE, high=self.frac_active_targets)
         random_unvisited_targets = self.np_random.choice(unvisited_targets,
-                                                         size=(int(len(unvisited_targets) * frac_active),),
+                                                         size=(int(len(unvisited_targets) * self.frac_active_targets),),
                                                          replace=False)
 
         self.visited.fill(1)
@@ -353,13 +359,15 @@ class MappingRadEnv(gym.Env):
             fig = plt.figure()
             self.ax = fig.add_subplot(111)
 
+            self._plot_text = plt.text(x=-170, y=45.0, s="", fontsize=32)
+
             for (i, j) in zip(self.motion_edges[0], self.motion_edges[1]):
                 self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
 
             # plot robots and targets and visited targets as scatter plot
-            line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro', markersize=12)
+            line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro', markersize=10)
             line3, = self.ax.plot([], [], 'b.')
-            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'go', markersize=20,
+            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'go', markersize=15,
                                   linewidth=0)
 
             # set plot limits, axis parameters, title
@@ -375,6 +383,8 @@ class MappingRadEnv(gym.Env):
             self.line1 = line1
             self.line2 = line2
             self.line3 = line3
+
+        self._plot_text.set_text(str(int(self.episode_reward)))
 
         # update robot plot
         self.line1.set_xdata(self.x[0:self.n_robots, 0])
@@ -455,9 +465,10 @@ class MappingRadEnv(gym.Env):
         # self.start_region = [in_obstacle(self.start_ranges, self.x[i, 0], self.x[i, 1]) for i in
         #                      range(self.n_robots, self.n_agents)]
 
-        self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
-
-        # self.start_region = [True] * (self.n_agents - self.n_robots)
+        if NEARBY_STARTS:
+            self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
+        else:
+            self.start_region = [True] * (self.n_agents - self.n_robots)
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
