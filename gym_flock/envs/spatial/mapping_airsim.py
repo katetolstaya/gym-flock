@@ -6,7 +6,11 @@ from gym_flock.envs.spatial.make_map import gen_obstacle_grid
 from gym_flock.envs.airsim.utils import parse_settings
 from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
 from gym_flock.envs.spatial.utils import _get_pos_diff
-from airsim.client import MultirotorClient
+
+try:
+    from airsim.client import MultirotorClient
+except ImportError:
+    airsim = None
 
 # parameters for map generation
 ranges = [(5, 30), (35, 65), (70, 95)]
@@ -26,6 +30,8 @@ start_regions = [(0, 100, 0, 100)]
 class MappingAirsimEnv(MappingRadEnv):
 
     def __init__(self):
+        assert airsim is not None, "Environment relies on AirSim"
+
         # parse settings file with drone names and home locations
         fname = '/home/kate/Documents/AirSim/settings.json'
         self.names, self.home = parse_settings(fname)
