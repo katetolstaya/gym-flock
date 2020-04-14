@@ -1,8 +1,10 @@
 from gym.envs.registration import register
 
+
+
 register(
-    id='MappingAirsim-v0',
-    entry_point='gym_flock.envs.spatial:MappingAirsimEnv',
+    id='MappingARL-v0',
+    entry_point='gym_flock.envs.spatial:MappingARLEnv',
     max_episode_steps=100000,
 )
 
@@ -77,6 +79,12 @@ try:
         id='FlockingAirsimAccel-v0',
         entry_point='gym_flock.envs.flocking:FlockingAirsimAccelEnv',
         max_episode_steps=200,
+    )
+
+    register(
+        id='MappingAirsim-v0',
+        entry_point='gym_flock.envs.spatial:MappingAirsimEnv',
+        max_episode_steps=100000,
     )
 except ImportError:
     print('AirSim not installed.')

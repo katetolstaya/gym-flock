@@ -1,11 +1,6 @@
-try:
-    import airsim
-    from airsim.client import MultirotorClient
-    from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
-    from gym_flock.envs.airsim.utils import parse_settings
-    airsim = True
-except ImportError:
-    airsim = None
+from airsim.client import MultirotorClient
+from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
+from gym_flock.envs.airsim.utils import parse_settings
 
 import numpy as np
 import copy
@@ -32,8 +27,6 @@ start_regions = [(0, 100, 0, 100)]
 class MappingAirsimEnv(MappingRadEnv):
 
     def __init__(self):
-        assert airsim is not None, "Environment relies on AirSim"
-
         # parse settings file with drone names and home locations
         fname = '/home/kate/Documents/AirSim/settings.json'
         self.names, self.home = parse_settings(fname)
