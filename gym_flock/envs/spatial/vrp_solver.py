@@ -1,8 +1,12 @@
 import gym
 import gym_flock
 import numpy as np
-from ortools.constraint_solver import routing_enums_pb2
-from ortools.constraint_solver import pywrapcp
+
+try:
+    from ortools.constraint_solver import routing_enums_pb2
+    from ortools.constraint_solver import pywrapcp
+except ImportError:
+    ortools = None
 
 penalty_multiplier = 500
 
@@ -50,6 +54,9 @@ def solve_vrp(env):
     :return:
     :rtype:
     """
+
+    assert ortools is not None, "Function solve_vrp() is not available if ORTools is not imported."
+
     data = create_data_model(env)
 
 

@@ -578,6 +578,7 @@ class MappingRadEnv(gym.Env):
         dim_nodes = N_NODE_FEAT
 
         # unpack node and edge data from flattened array
+        # order ['nodes', 'edges', 'senders', 'receivers', 'step']
         shapes = ((n_nodes, dim_nodes), (max_n_edges, dim_edges), (max_n_edges, 1), (max_n_edges, 1), (1, N_GLOB_FEAT))
         sizes = [np.prod(s) for s in shapes]
         tensors = tf.split(obs, sizes, axis=1)

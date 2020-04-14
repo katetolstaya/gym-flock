@@ -23,6 +23,7 @@ env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 env.reset()
+env.render()
 
 arl_env = env.env.env
 

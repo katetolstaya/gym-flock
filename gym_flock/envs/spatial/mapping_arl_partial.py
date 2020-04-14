@@ -306,7 +306,7 @@ def from_occupancy():
     res = np.reshape(np.array([0.5, 0.5]), (1, 2)) * DOWNSAMPLE_RATE  # [0.5, 0.5, 1.0]
     targets = targets * res + xyz_min + res / 2
 
-    targets = np.hstack((targets[:, 1].reshape((-1,1)), -1.0  * targets[:,0].reshape((-1,1))))
+    targets = np.hstack((targets[:, 1].reshape((-1, 1)) - 2.5, 2.5 + -1.0 * targets[:, 0].reshape((-1, 1))))
 
     # nearest_landmarks = np.random.choice(np.arange(np.shape(targets)[0]), size=(5,), replace=False)
     # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
