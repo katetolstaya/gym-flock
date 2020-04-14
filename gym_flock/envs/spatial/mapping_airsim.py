@@ -1,16 +1,17 @@
-import airsim
-import numpy as np
-import copy
-from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
-from gym_flock.envs.spatial.make_map import gen_obstacle_grid
-from gym_flock.envs.airsim.utils import parse_settings
-from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
-from gym_flock.envs.spatial.utils import _get_pos_diff
-
 try:
+    import airsim
     from airsim.client import MultirotorClient
+    from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
+    from gym_flock.envs.airsim.utils import parse_settings
 except ImportError:
     airsim = None
+
+import numpy as np
+import copy
+
+from gym_flock.envs.spatial.make_map import gen_obstacle_grid
+from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
+# from gym_flock.envs.spatial.utils import _get_pos_diff
 
 # parameters for map generation
 ranges = [(5, 30), (35, 65), (70, 95)]
