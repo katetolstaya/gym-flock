@@ -17,7 +17,7 @@ rospy.init_node('gnn')
 # TODO smaller rate here?
 r = rospy.Rate(10.0)
 
-env_name = "MappingARL-v0"
+env_name = "MappingARLPartial-v0"
 
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']

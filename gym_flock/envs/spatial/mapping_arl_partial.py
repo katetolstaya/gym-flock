@@ -45,6 +45,7 @@ if TESTING_PARAMS:
     EARLY_TERMINATION = False
 
     N_ROBOTS = 10
+    NEARBY_STARTS = False
 
 else:
     DOWNSAMPLE_RATE = 10
@@ -59,13 +60,16 @@ else:
     # padding for a variable number of graph edges
     PAD_NODES = True
     MAX_NODES = 1000
-    MAX_EDGES = 4
+    MAX_EDGES = 3
 
     # number of edges/actions for each robot, fixed
     N_ACTIONS = 4
 
     EPISODE_LENGTH = 75
     EARLY_TERMINATION = False
+
+    NEARBY_STARTS = False
+    # NEARBY_STARTS = True
 
     N_ROBOTS = 3
 
@@ -85,43 +89,6 @@ class MappingARLPartialEnv(MappingRadEnv):
         super(MappingARLPartialEnv, self).__init__(n_robots=n_robots, frac_active_targets=frac_active_targets,
                                                    init_graph=False, episode_length=EPISODE_LENGTH,
                                                    res=0.5 * DOWNSAMPLE_RATE)
-
-        # self.episode_length = EPISODE_LENGTH
-
-        # self.np_random = None
-        # self.seed()
-
-        # # dim of state per agent, 2D position and 2D velocity
-        # self.nx = 2
-        #
-        # # agent dynamics are controlled with 2D acceleration
-        # self.nu = 2
-
-        # # number of robots and targets
-        # self.n_robots = n_robots
-        # self.frac_active_targets = frac_active_targets
-
-        # # graph parameters
-        # self.comm_radius = 20.0
-        # self.res = 0.5 * DOWNSAMPLE_RATE #5 / np.sqrt(5.0 / 5.5)
-        # self.motion_radius = self.res * 1.2
-        # self.obs_radius = self.res * 1.2
-
-        # plotting and seeding parameters
-        # self.fig = None
-        # self.ax = None
-        # self.line1 = None
-        # self.line2 = None
-        # self.line3 = None
-        # self.cached_solution = None
-        # self.graph_previous = None
-        # self.graph_cost = None
-        #
-        # self.step_counter = 0
-        # self.n_motion_edges = 0
-        # self.done = False
-        # self.last_loc = None
-        # self.node_history = None
         self.load_graph()
         self._sample_subgraph()
 
@@ -268,9 +235,11 @@ class MappingARLPartialEnv(MappingRadEnv):
 
         self.unvisited_region = [True] * (self.n_agents - self.n_robots)
 
-        # self.start_region = [self.n_targets - self.n_robots - 15 < i <= self.n_targets for i in range(self.n_robots, self.n_agents)]
-        # self.start_region = [-150 < self.x[i, 1] <= -50 for i in range(self.n_robots, self.n_agents)]
-        self.start_region = [True] * (self.n_agents - self.n_robots)
+        if NEARBY_STARTS:
+            self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
+        else:
+            self.start_region = [True] * (self.n_agents - self.n_robots)
+
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
@@ -332,10 +301,12 @@ def from_occupancy():
     targets = vertices[flag, :]
 
     # xyz_min = [-321.0539855957031, -276.5395050048828, -9.511598587036133]
-    xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828]), (1, 2))
+    xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828 - 1.0]), (1, 2))
     # xyz_max = [319.4460144042969, 277.9604949951172, 23.488401412963867]
     res = np.reshape(np.array([0.5, 0.5]), (1, 2)) * DOWNSAMPLE_RATE  # [0.5, 0.5, 1.0]
     targets = targets * res + xyz_min + res / 2
+
+    targets = np.hstack((targets[:, 1].reshape((-1,1)), -1.0  * targets[:,0].reshape((-1,1))))
 
     # nearest_landmarks = np.random.choice(np.arange(np.shape(targets)[0]), size=(5,), replace=False)
     # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)

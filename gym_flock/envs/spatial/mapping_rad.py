@@ -46,9 +46,10 @@ COMM_EDGES = False
 PAD_NODES = True
 MAX_NODES = 1000
 # MAX_NODES = 1300
-MAX_EDGES = 4
+MAX_EDGES = 3
 
 # number of edges/actions for each robot, fixed
+PAD_ACTIONS = True
 N_ACTIONS = 4
 ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
@@ -194,6 +195,30 @@ class MappingRadEnv(gym.Env):
         done = done or (EARLY_TERMINATION and self.done)
         return obs, reward, done, {}
 
+    def get_action_edges(self):
+        #TODO test this code with a greedy controller
+
+        senders = np.zeros((0,))
+        receivers = np.zeros((0,))
+        curr_nodes = self.closest_targets
+
+        for i in range(self.n_robots):
+            curr_node = curr_nodes[i]
+            next_nodes = self.motion_edges[1][np.where(self.motion_edges[0] == curr_node)]
+            n_next_nodes = np.shape(next_nodes)[0]
+
+            if n_next_nodes < N_ACTIONS:
+                next_nodes = np.append(next_nodes, [curr_node] *  (N_ACTIONS - n_next_nodes))
+
+            senders = np.append(senders, [i]*4)
+            receivers = np.append(receivers, next_nodes)
+
+        senders = senders.astype(np.int)
+        receivers = receivers.astype(np.int)
+
+        dists = np.linalg.norm(self.x[senders, :] - self.x[receivers, :], axis=1)
+        return (senders, receivers), dists
+
     def _get_obs_reward(self):
         """
         Method to retrieve observation graph, with node and edge attributes
@@ -205,16 +230,17 @@ class MappingRadEnv(gym.Env):
         reward - MDP reward at this step
         done - is this the last step of the episode?
         """
-        # action edges from landmarks to robots
-        action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                 self.x[self.n_robots:self.n_agents, 0:2], allow_nearest=ALLOW_NEAREST)
-        action_edges = (action_edges[0], action_edges[1] + self.n_robots)
-        assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
-        self.mov_edges = action_edges
 
-        # planning edges from robots to landmarks
-        plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2], self.x[self.n_robots:self.n_agents, 0:2])
-        plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
+        if PAD_ACTIONS:
+            action_edges, action_dist = self.get_action_edges()
+        else:
+            action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+                                                     self.x[self.n_robots:self.n_agents, 0:2], allow_nearest=ALLOW_NEAREST)
+            action_edges = (action_edges[0], action_edges[1] + self.n_robots)
+
+        assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
+
+        self.mov_edges = action_edges
 
         old_sum = np.sum(self.visited[self.n_robots:self.n_agents])
         self.visited[self.closest_targets] = 1
@@ -226,13 +252,18 @@ class MappingRadEnv(gym.Env):
             # communication edges among robots
             comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
 
+            # planning edges from robots to landmarks
+            plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2], self.x[self.n_robots:self.n_agents, 0:2])
+            plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
+
             senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
             receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
             edges_dist = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
+
         else:
-            senders = np.concatenate((plan_edges[0], action_edges[1]))
-            receivers = np.concatenate((plan_edges[1], action_edges[0]))
-            edges_dist = np.concatenate((plan_dist, action_dist)).reshape((-1, 1))
+            senders = action_edges[1]
+            receivers = action_edges[0]
+            edges_dist = action_dist.reshape((-1, 1))
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # normalize the edge distance by resolution
@@ -272,8 +303,8 @@ class MappingRadEnv(gym.Env):
         if N_NODE_FEAT == 4:
             self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
-        # step_array = np.array([self.step_counter]).reshape((1, 1))
-        step_array = np.array([0.0]).reshape((1, 1))
+        step_array = np.array([self.step_counter]).reshape((1, 1))
+        # step_array = np.array([0.0]).reshape((1, 1))
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
                'step': step_array}
