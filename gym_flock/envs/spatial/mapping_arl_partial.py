@@ -5,6 +5,7 @@ from gym.utils import seeding
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+from pathlib import Path
 from matplotlib.pyplot import gca
 from gym.spaces import Box
 
@@ -17,7 +18,7 @@ font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
-TESTING_PARAMS = True
+TESTING_PARAMS = False
 
 if TESTING_PARAMS:
     NUM_SUBGRAPHS = 1
@@ -273,9 +274,11 @@ class MappingARLPartialEnv(MappingRadEnv):
 
 
 def from_occupancy():
-    fname = '/home/kate/work/gym-flock/grid_slice' + str(DOWNSAMPLE_RATE) + '.npy'
+    # fname = '/home/kate/work/gym-flock/grid_slice' + str(DOWNSAMPLE_RATE) + '.npy'
 
-    arr = np.load(fname)
+    path = Path(__file__).parent / ('maps/grid_slice' + str(DOWNSAMPLE_RATE) + '.npy')
+
+    arr = np.load(path)
 
     xs = np.array(range(arr.shape[0]))
     ys = np.array(range(arr.shape[1]))

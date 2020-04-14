@@ -3,6 +3,7 @@ try:
     from airsim.client import MultirotorClient
     from gym_flock.envs.airsim.utils import send_loc_commands, send_velocity_commands, setup_drones, get_states
     from gym_flock.envs.airsim.utils import parse_settings
+    airsim = True
 except ImportError:
     airsim = None
 

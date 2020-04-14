@@ -5,6 +5,7 @@ import numpy as np
 try:
     from ortools.constraint_solver import routing_enums_pb2
     from ortools.constraint_solver import pywrapcp
+    ortools = True
 except ImportError:
     ortools = None
 
