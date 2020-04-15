@@ -57,6 +57,7 @@ else:
     PAD_NODES = True
     MAX_NODES = 1000
 
+MAP_RES = 0.5
 
 class CoverageARLEnv(CoverageEnv):
 
@@ -65,7 +66,9 @@ class CoverageARLEnv(CoverageEnv):
         """
 
         super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=EPISODE_LENGTH,
-                                             res=0.5 * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES)
+                                             res=MAP_RES * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES)
+
+        # need to initialize graph to set up the observation space
         self.load_graph()
         targets = self._generate_targets()
         self._initialize_graph(targets)
