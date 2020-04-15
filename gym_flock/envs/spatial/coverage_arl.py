@@ -40,8 +40,6 @@ if TESTING_PARAMS:
     # padding for a variable number of graph edges
     PAD_NODES = False
     MAX_NODES = 1500
-
-
 else:
     EPISODE_LENGTH = 75
 
@@ -58,6 +56,7 @@ else:
     MAX_NODES = 1000
 
 MAP_RES = 0.5
+
 
 class CoverageARLEnv(CoverageEnv):
 
