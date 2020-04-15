@@ -6,7 +6,7 @@ import numpy as np
 import copy
 
 from gym_flock.envs.spatial.make_map import gen_obstacle_grid
-from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
+from gym_flock.envs.spatial.coverage import CoverageEnv
 # from gym_flock.envs.spatial.utils import _get_pos_diff
 
 # parameters for map generation
@@ -24,15 +24,15 @@ unvisited_regions = [(0, 100, 0, 100)]
 start_regions = [(0, 100, 0, 100)]
 
 
-class MappingAirsimEnv(MappingRadEnv):
+class CoverageAirsimEnv(CoverageEnv):
 
     def __init__(self):
         # parse settings file with drone names and home locations
         fname = '/home/kate/Documents/AirSim/settings.json'
         self.names, self.home = parse_settings(fname)
 
-        super(MappingAirsimEnv, self).__init__(n_robots=len(self.names), obstacles=OBST, xmax=XMAX, ymax=YMAX,
-                                               starts=start_regions, unvisiteds=unvisited_regions)
+        super(CoverageAirsimEnv, self).__init__(n_robots=len(self.names), xmax=XMAX, ymax=YMAX,
+                                                starts=start_regions, unvisiteds=unvisited_regions)
 
         # connect to the AirSim simulator
         self.client = MultirotorClient()

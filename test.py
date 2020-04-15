@@ -1,38 +1,60 @@
 import gym
-env_dict = gym.envs.registration.registry.env_specs.copy()
-for env in env_dict:
-    print('Remove {} from registry'.format(env))
-    del gym.envs.registration.registry.env_specs[env]
-
 import gym_flock
-import configparser
-import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser(description="My parser")
+parser.add_argument('--greedy', dest='optimal', action='store_false')
+parser.add_argument('--expert', dest='optimal', action='store_true')
+parser.add_argument('--render', dest='render', action='store_true')
+parser.set_defaults(optimal=True, render=False)
+args = parser.parse_args()
 
 # Initialize the gym environment
-# env_name = "MappingRad-v0"
-env_name = "Shepherding-v0"
+env_name = "CoverageARL-v0"
+
 env = gym.make(env_name)
+keys = ['nodes', 'edges', 'senders', 'receivers']
+env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
 # Run N episodes
-N = 10
+N = 20
+total_reward = 0
+
+# optimal = False
+optimal = True
 
 # for each episode
 for _ in range(N):
     # reset the environment
-    observation, graph = env.reset()
+    obs = env.reset()
     episode_reward = 0
 
     # simulate episode until done
     done = False
     while not done:
         # compute the baseline controller
-        action = env.env.controller()
+        if optimal:
+            try:
+                action = env.env.env.controller()
+            except AssertionError:
+                obs = env.reset()
+                episode_reward = 0
+                done = False
+                continue
+        else:
+            # action = env.env.env.controller(random=True)
+            action = env.env.env.controller(random=False, greedy=True)
 
         # simulate one step of the environment
-        (observation, graph), reward, done, _ = env.step(action)
+        obs, reward, done, _ = env.step(action)
         episode_reward += reward
 
-        # visualize the environment
-        env.render()
+        if args.render:  # visualize the environment
+            env.render()
+
     print(episode_reward)
+    total_reward += episode_reward
+
+print(total_reward / N)
+
 env.close()

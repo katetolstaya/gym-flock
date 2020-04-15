@@ -5,7 +5,6 @@ import copy
 import rospy
 from mav_manager.srv import Vec4Request, Vec4
 from geometry_msgs.msg import PoseStamped
-# from gym_flock.envs.spatial.mapping_rad import MappingRadEnv
 
 n_robots = 10
 x = np.zeros((n_robots, 2))
@@ -17,7 +16,7 @@ rospy.init_node('gnn')
 # TODO smaller rate here?
 r = rospy.Rate(10.0)
 
-env_name = "MappingARLPartial-v0"
+env_name = "CoverageARL-v0"
 
 env = gym.make(env_name)
 keys = ['nodes', 'edges', 'senders', 'receivers']
@@ -55,15 +54,13 @@ while True:
     loc_commands = np.reshape(arl_env.x[next_loc, 0:2], (arl_env.n_robots, 2))
 
     # update last loc
-    # TODO does this go here or before update state/recompute graph?
     old_last_loc = arl_env.last_loc
     arl_env.last_loc = arl_env.closest_targets
 
     # send new waypoints
     for i, service in enumerate(services):
-        # TODO convert GNN output to next location
+
         goal_position = [loc_commands[i, 0], loc_commands[i, 1], altitudes[i], -1.57]
-        # goal_position = [x[i, 0]+0.1, x[i, 1], 5.0, -1.57]
         goal_position = Vec4Request(goal_position)
         try:
             service(goal_position)

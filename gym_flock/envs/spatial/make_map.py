@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gym_flock.envs.spatial.utils import _get_pos_diff
 from scipy.spatial import Delaunay
-# from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff
+from pathlib import Path
+
 
 def in_obstacle(obstacles, px, py):
     """
@@ -230,6 +231,48 @@ def generate_geometric_roads(n_cities, world_radius, road_radius):
     return all_waypoints
 
 
+def from_occupancy(downsample_rate, perimeter_delta):
+
+    path = Path(__file__).parent / ('maps/grid_slice' + str(downsample_rate) + '.npy')
+
+    arr = np.load(path)
+
+    xs = np.array(range(arr.shape[0]))
+    ys = np.array(range(arr.shape[1]))
+
+    xs, ys = np.meshgrid(xs, ys)
+
+    xs = xs.flatten()
+    ys = ys.flatten()
+
+    not_occupied = [not arr[i, j] for i, j in zip(xs, ys)]
+    occupied = [not i for i in not_occupied]
+
+    xs_nocc = np.reshape(xs[not_occupied], (-1, 1))
+    ys_nocc = np.reshape(ys[not_occupied], (-1, 1))
+    vertices = np.hstack((xs_nocc, ys_nocc))
+
+    xs_occ = np.reshape(xs[occupied], (-1, 1))
+    ys_occ = np.reshape(ys[occupied], (-1, 1))
+    vertices_occ = np.hstack((xs_occ, ys_occ))
+
+    flag = np.min(np.linalg.norm(_get_pos_diff(vertices, vertices_occ), axis=2), axis=1) <= perimeter_delta
+
+    targets = vertices[flag, :]
+
+    # xyz_min = [-321.0539855957031, -276.5395050048828, -9.511598587036133]
+    xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828 - 1.0]), (1, 2))
+    # xyz_max = [319.4460144042969, 277.9604949951172, 23.488401412963867]
+    res = np.reshape(np.array([0.5, 0.5]), (1, 2)) * downsample_rate  # [0.5, 0.5, 1.0]
+    targets = targets * res + xyz_min + res / 2
+
+    targets = np.hstack((targets[:, 1].reshape((-1, 1)) - 2.5, 2.5 + -1.0 * targets[:, 0].reshape((-1, 1))))
+
+    # nearest_landmarks = np.random.choice(np.arange(np.shape(targets)[0]), size=(5,), replace=False)
+    # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
+    # print(targets[nearest_landmarks + 5, 0:2])
+
+    return targets
 
 
 

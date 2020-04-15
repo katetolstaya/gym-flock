@@ -1,18 +1,15 @@
 from gym.envs.registration import register
 
-
-
 register(
-    id='MappingARL-v0',
-    entry_point='gym_flock.envs.spatial:MappingARLEnv',
+    id='CoverageARL-v0',
+    entry_point='gym_flock.envs.spatial:CoverageARLEnv',
     max_episode_steps=100000,
 )
 
-
 register(
-    id='MappingARLPartial-v0',
-    entry_point='gym_flock.envs.spatial:MappingARLPartialEnv',
-    max_episode_steps=100000,
+    id='Coverage-v0',
+    entry_point='gym_flock.envs.spatial:CoverageEnv',
+    max_episode_steps=75,
 )
 
 
@@ -20,12 +17,6 @@ register(
     id='Shepherding-v0',
     entry_point='gym_flock.envs.shepherding:ShepherdingEnv',
     max_episode_steps=1000,
-)
-
-register(
-    id='MappingRad-v0',
-    entry_point='gym_flock.envs.spatial:MappingRadEnv',
-    max_episode_steps=100,
 )
 
 register(
