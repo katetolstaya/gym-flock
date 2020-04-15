@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 from gym.spaces import Box
 
-from gym_flock.envs.spatial.make_map import generate_lattice, reject_collisions, gen_obstacle_grid, in_obstacle, \
-    generate_geometric_roads
-from gym_flock.envs.spatial.vrp_solver import solve_vrp
+from gym_flock.envs.spatial.make_map import generate_lattice,  generate_geometric_roads
 from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff
+from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix
@@ -189,17 +188,21 @@ class CoverageEnv(gym.Env):
         return obs, reward, done, {}
 
     def get_action_edges(self):
+        """
+        Compute edges from robots to nearby landmarks, and pad with loops to the current locations up to N_ACTIONS
+        :return: adjacency list, edge distances
+        """
         senders = np.zeros((0,))
         receivers = np.zeros((0,))
         curr_nodes = self.closest_targets
 
         for i in range(self.n_robots):
-            curr_node = curr_nodes[i]
-            next_nodes = self.motion_edges[1][np.where(self.motion_edges[0] == curr_node)]
+            next_nodes = self.motion_edges[1][np.where(self.motion_edges[0] == curr_nodes[i])]
             n_next_nodes = np.shape(next_nodes)[0]
 
+            # pad edges for each robot with loops to current node
             if n_next_nodes < N_ACTIONS:
-                next_nodes = np.append(next_nodes, [curr_node] * (N_ACTIONS - n_next_nodes))
+                next_nodes = np.append(next_nodes, [curr_nodes[i]] * (N_ACTIONS - n_next_nodes))
 
             senders = np.append(senders, [i] * 4)
             receivers = np.append(receivers, next_nodes)
@@ -207,6 +210,7 @@ class CoverageEnv(gym.Env):
         senders = senders.astype(np.int)
         receivers = receivers.astype(np.int)
 
+        # compute edge distances
         dists = np.linalg.norm(self.x[senders, :] - self.x[receivers, :], axis=1)
         return (senders, receivers), dists
 
@@ -263,7 +267,6 @@ class CoverageEnv(gym.Env):
         edges_dist = edges_dist / self.res
 
         if N_EDGE_FEAT == 2:
-            # TODO is the edge history necessary as a form of memory?
             last_edges = np.zeros((len(senders), 1), dtype=np.bool)
             if self.last_loc is not None:
                 for i in range(self.n_robots):
@@ -273,12 +276,9 @@ class CoverageEnv(gym.Env):
                     last_edges = last_edges.reshape((-1, 1))
 
             edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
-            # edges[:, 0].fill(0)
-            # edges[:, 1].fill(1/self.res)
 
         else:
             edges = edges_dist.reshape((-1, N_EDGE_FEAT))
-            # edges[:, 0].fill(1)
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -297,7 +297,6 @@ class CoverageEnv(gym.Env):
             self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
         step_array = np.array([self.step_counter]).reshape((1, 1))
-        # step_array = np.array([0.0]).reshape((1, 1))
 
         obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
                'step': step_array}
