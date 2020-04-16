@@ -140,26 +140,30 @@ class CoverageEnv(gym.Env):
 
         # call helper function to initialize arrays
         if init_graph:
-            targets = self._generate_targets()
+            targets, _ = self._generate_targets()
             self._initialize_graph(targets)
 
         # plotting and seeding parameters
         self.episode_reward = 0
+
         self.fig = None
         self._plot_text = None
         self.ax = None
         self.line1 = None
         self.line2 = None
         self.line3 = None
-        self.cached_solution = None
-        self.graph_previous = None
-        self.graph_cost = None
+        self.line4 = None
+
 
         self.step_counter = 0
         self.n_motion_edges = 0
 
         self.last_loc = None
-        self.node_history = None
+        # self.node_history = None
+
+        self.cached_solution = None
+        self.graph_previous = None
+        self.graph_cost = None
 
     def seed(self, seed=None):
         """ Seed the numpy random number generator
@@ -241,8 +245,8 @@ class CoverageEnv(gym.Env):
         old_sum = np.sum(self.visited[self.n_robots:self.n_agents])
         self.visited[self.closest_targets] = 1
 
-        if N_NODE_FEAT == 4:
-            self.node_history[self.closest_targets] = 1
+        # if N_NODE_FEAT == 4:
+        #     self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:
             # communication edges among robots
@@ -293,8 +297,8 @@ class CoverageEnv(gym.Env):
         self.nodes[0:self.n_agents, 1] = self.landmark_flag.flatten()
         self.nodes[0:self.n_agents, 2] = np.logical_not(self.visited).flatten()
 
-        if N_NODE_FEAT == 4:
-            self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
+        # if N_NODE_FEAT == 4:
+        #     self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
         step_array = np.array([self.step_counter]).reshape((1, 1))
 
@@ -314,29 +318,32 @@ class CoverageEnv(gym.Env):
         :return: observations, adjacency matrix
         """
 
-        if self.fig is not None:
-            plt.close(self.fig)
-
-        # plotting and seeding parameters
-        self.fig = None
-        self._plot_text = None
-        self.ax = None
-        self.line1 = None
-        self.line2 = None
-        self.line3 = None
-        self.cached_solution = None
-        self.graph_previous = None
-        self.graph_cost = None
-
         self.episode_reward = 0
         self.step_counter = 0
-        self.n_motion_edges = 0
-
+        self.cached_solution = None
         self.last_loc = None
-        self.node_history = None
+        # self.node_history = None
 
-        targets = self._generate_targets()
-        self._initialize_graph(targets)
+        targets, graph_changed = self._generate_targets()
+
+        if graph_changed:
+            if self.fig is not None:
+                plt.close(self.fig)
+
+            # plotting and seeding parameters
+            self.n_motion_edges = 0
+            self.graph_previous = None
+            self.graph_cost = None
+
+            self.fig = None
+            self._plot_text = None
+            self.ax = None
+            self.line1 = None
+            self.line2 = None
+            self.line3 = None
+            self.line4 = None
+
+            self._initialize_graph(targets)
 
         # initialize robots near targets
         nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
@@ -353,7 +360,7 @@ class CoverageEnv(gym.Env):
         self.visited.fill(1)
         self.visited[random_unvisited_targets] = 0
 
-        self.node_history = np.zeros((self.n_agents, 1))
+        # self.node_history = np.zeros((self.n_agents, 1))
         obs, _, _ = self._get_obs_reward()
         return obs
 
@@ -374,11 +381,13 @@ class CoverageEnv(gym.Env):
         if mode is not 'human':
             return
 
+        n_hops = 25
+
         if self.fig is None:
             # initialize plot parameters
             plt.ion()
-            fig = plt.figure()
-            self.ax = fig.add_subplot(111)
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(111)
 
             self._plot_text = plt.text(x=-170, y=45.0, s="", fontsize=32)
 
@@ -386,39 +395,35 @@ class CoverageEnv(gym.Env):
                 self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
 
             # plot robots and targets and visited targets as scatter plot
-            line2, = self.ax.plot(self.x[self.n_robots:, 0], self.x[self.n_robots:, 1], 'ro', markersize=10)
-            line3, = self.ax.plot([], [], 'b.')
-            line1, = self.ax.plot(self.x[0:self.n_robots, 0], self.x[0:self.n_robots, 1], 'go', markersize=15,
-                                  linewidth=0)
+            self.line2, = self.ax.plot([], [], 'ro', markersize=10)
+            self.line3, = self.ax.plot([], [], 'b.')
+            self.line4, = self.ax.plot([], [], 'yo')
+            self.line1, = self.ax.plot([], [], 'go', markersize=15, linewidth=0)
 
-            # set plot limits, axis parameters, title
-            # plt.xlim(self.x_min, self.x_max)
-            # plt.ylim(self.y_min, self.y_max)
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
             a.set_yticklabels(a.get_yticks(), font)
-            # plt.title('GNN Controller')
-
-            # store plot state
-            self.fig = fig
-            self.line1 = line1
-            self.line2 = line2
-            self.line3 = line3
 
         self._plot_text.set_text(str(int(self.episode_reward)))
 
         # update robot plot
         self.line1.set_xdata(self.x[0:self.n_robots, 0])
         self.line1.set_ydata(self.x[0:self.n_robots, 1])
-        temp = np.where((self.visited[self.n_robots:] == 0).flatten())
 
         # update unvisited target plot
-        self.line2.set_xdata(self.x[self.n_robots:, 0][temp])
-        self.line2.set_ydata(self.x[self.n_robots:, 1][temp])
+        unvisited = np.where((self.visited[self.n_robots:] == 0).flatten())
+        self.line2.set_xdata(self.x[self.n_robots:, 0][unvisited])
+        self.line2.set_ydata(self.x[self.n_robots:, 1][unvisited])
 
         # update visited target plot
         self.line3.set_xdata(self.x[np.nonzero(self.visited.flatten()), 0])
         self.line3.set_ydata(self.x[np.nonzero(self.visited.flatten()), 1])
+
+        if self.graph_cost is not None:
+            robot_ind = self.closest_targets[0] - self.n_robots
+            neighborhood = np.where((self.graph_cost[robot_ind, :] <= n_hops).flatten())
+            self.line4.set_xdata(self.x[self.n_robots:, 0][neighborhood])
+            self.line4.set_ydata(self.x[self.n_robots:, 1][neighborhood])
 
         # draw updated figure
         self.fig.canvas.draw()
@@ -441,7 +446,7 @@ class CoverageEnv(gym.Env):
         r[r > self.motion_radius] = 0
         _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
         targets = targets[labels == np.argmax(np.bincount(labels)), :]
-        return targets
+        return targets, True
 
     def _initialize_graph(self, targets):
         """
@@ -470,7 +475,7 @@ class CoverageEnv(gym.Env):
         self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
-        self.node_history = np.zeros((self.n_agents, 1))
+        # self.node_history = np.zeros((self.n_agents, 1))
 
         # communication radius squared
         self.comm_radius2 = self.comm_radius * self.comm_radius

@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description="My parser")
 parser.add_argument('--greedy', dest='optimal', action='store_false')
 parser.add_argument('--expert', dest='optimal', action='store_true')
 parser.add_argument('--render', dest='render', action='store_true')
-parser.set_defaults(optimal=True, render=False)
+parser.set_defaults(optimal=False, render=False)
 args = parser.parse_args()
 
 # Initialize the gym environment
@@ -33,7 +33,7 @@ for _ in range(N):
     done = False
     while not done:
         # compute the baseline controller
-        if optimal:
+        if args.optimal:
             try:
                 action = env.env.env.controller()
             except AssertionError:

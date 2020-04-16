@@ -43,9 +43,9 @@ if TESTING_PARAMS:
 else:
     EPISODE_LENGTH = 75
 
-    N_ROBOTS = 3
+    N_ROBOTS = 4
 
-    NUM_SUBGRAPHS = 3
+    NUM_SUBGRAPHS = 2
     MIN_GRAPH_SIZE = 200
     DOWNSAMPLE_RATE = 10
     PERIMETER_DELTA = 2.0
@@ -69,7 +69,7 @@ class CoverageARLEnv(CoverageEnv):
 
         # need to initialize graph to set up the observation space
         self.load_graph()
-        targets = self._generate_targets()
+        targets, _ = self._generate_targets()
         self._initialize_graph(targets)
 
     def update_state(self, state):
@@ -112,6 +112,6 @@ class CoverageARLEnv(CoverageEnv):
                 _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
                 targets = targets[labels == np.argmax(np.bincount(labels)), :]
                 n_targets = np.shape(targets)[0]
-            return targets
+            return targets, True
         else:
-            return self.all_targets
+            return self.all_targets, False
