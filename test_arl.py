@@ -19,13 +19,11 @@ r = rospy.Rate(10.0)
 env_name = "CoverageARL-v0"
 
 env = gym.make(env_name)
-keys = ['nodes', 'edges', 'senders', 'receivers']
-env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
+env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 env.reset()
 env.render()
 
 arl_env = env.env.env
-
 
 def state_callback(data, robot_index):
     x[robot_index, 0] = data.pose.position.x

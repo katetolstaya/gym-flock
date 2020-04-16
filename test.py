@@ -13,15 +13,11 @@ args = parser.parse_args()
 env_name = "CoverageARL-v0"
 
 env = gym.make(env_name)
-keys = ['nodes', 'edges', 'senders', 'receivers']
-env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
+env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 
 # Run N episodes
 N = 20
 total_reward = 0
-
-# optimal = False
-optimal = True
 
 # for each episode
 for _ in range(N):
