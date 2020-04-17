@@ -35,7 +35,8 @@ N_NODE_FEAT = 3
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
 
-NEARBY_STARTS = False
+# NEARBY_STARTS = False
+NEARBY_STARTS = True
 
 COMM_EDGES = False
 
@@ -51,6 +52,9 @@ ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 75
+
+USE_HORIZON = True
+HORIZON = 15
 
 N_ROBOTS = 5
 
@@ -88,7 +92,7 @@ DELTA = 5.5
 class CoverageEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
                  starts=start_regions, unvisiteds=unvisited_regions, init_graph=True, episode_length=EPISODE_LENGTH,
-                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES):
+                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES, nearby_starts=NEARBY_STARTS):
         """Initialize the mapping environment
         """
         super(CoverageEnv, self).__init__()
@@ -96,6 +100,7 @@ class CoverageEnv(gym.Env):
         self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
 
         self.episode_length = episode_length
+        self.nearby_starts = nearby_starts
 
         self.pad_nodes = pad_nodes
         self.max_nodes = max_nodes
@@ -381,8 +386,6 @@ class CoverageEnv(gym.Env):
         if mode is not 'human':
             return
 
-        n_hops = 25
-
         if self.fig is None:
             # initialize plot parameters
             plt.ion()
@@ -421,7 +424,7 @@ class CoverageEnv(gym.Env):
 
         if self.graph_cost is not None:
             robot_ind = self.closest_targets[0] - self.n_robots
-            neighborhood = np.where((self.graph_cost[robot_ind, :] <= n_hops).flatten())
+            neighborhood = np.where((self.graph_cost[robot_ind, :] <= HORIZON).flatten())
             self.line4.set_xdata(self.x[self.n_robots:, 0][neighborhood])
             self.line4.set_ydata(self.x[self.n_robots:, 1][neighborhood])
 
@@ -485,7 +488,7 @@ class CoverageEnv(gym.Env):
 
         self.unvisited_region = [True] * (self.n_agents - self.n_robots)
 
-        if NEARBY_STARTS:
+        if self.nearby_starts:
             self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
         else:
             self.start_region = [True] * (self.n_agents - self.n_robots)
@@ -617,8 +620,11 @@ class CoverageEnv(gym.Env):
             next_loc = greedy_loc
         else:
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
-            if self.cached_solution is None:
-                self.cached_solution = solve_vrp(self)
+            if self.cached_solution is None or self.step_counter % HORIZON == 0 and USE_HORIZON:
+                if USE_HORIZON:
+                    self.cached_solution = solve_vrp(self, HORIZON)
+                else:
+                    self.cached_solution = solve_vrp(self)
 
             next_loc = np.zeros((self.n_robots,), dtype=int)
 

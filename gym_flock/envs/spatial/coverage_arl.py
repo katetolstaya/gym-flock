@@ -26,6 +26,7 @@ if TESTING_PARAMS:
 
     N_ROBOTS = 10
 
+    NEARBY_STARTS = False
     NUM_SUBGRAPHS = 1
     MIN_GRAPH_SIZE = 200
     DOWNSAMPLE_RATE = 10
@@ -43,9 +44,10 @@ if TESTING_PARAMS:
 else:
     EPISODE_LENGTH = 75
 
-    N_ROBOTS = 4
+    N_ROBOTS = 3
 
-    NUM_SUBGRAPHS = 2
+    NEARBY_STARTS = True
+    NUM_SUBGRAPHS = 3
     MIN_GRAPH_SIZE = 200
     DOWNSAMPLE_RATE = 10
     PERIMETER_DELTA = 2.0
@@ -65,7 +67,8 @@ class CoverageARLEnv(CoverageEnv):
         """
 
         super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=EPISODE_LENGTH,
-                                             res=MAP_RES * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES)
+                                             res=MAP_RES * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES,
+                                             nearby_starts=NEARBY_STARTS)
 
         # need to initialize graph to set up the observation space
         self.load_graph()

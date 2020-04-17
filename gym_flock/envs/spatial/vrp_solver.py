@@ -23,12 +23,19 @@ def create_data_model(env):
     init_loc = env.closest_targets - env.n_robots
 
     # get visitation of nodes
-    penalty = np.logical_not(env.visited) * penalty_multiplier
+    penalty = np.logical_not(env.visited[env.n_robots:]) * penalty_multiplier
     penalty = np.insert(penalty, 0, 0.0)
     data['penalties'] = penalty
 
     # get map edges from env
-    dist_mat = env.graph_cost
+    dist_mat = np.copy(env.graph_cost)
+
+    fill = np.ones(env.n_targets)
+    fill[init_loc] = 0
+
+    ignore = np.where(np.logical_and(env.visited[env.n_robots:].flatten(), fill))
+    dist_mat[ignore, :] = penalty_multiplier
+    dist_mat[:, ignore] = penalty_multiplier
 
     # add depot at index env.n_targets with distance = 0 to/from all nodes
     from_depot = np.ones((1, env.n_targets)) * 100000.0
@@ -47,7 +54,7 @@ def create_data_model(env):
     return data
 
 
-def solve_vrp(env):
+def solve_vrp(env, trajectory_length=None):
     """
 
     :param env:
@@ -60,6 +67,8 @@ def solve_vrp(env):
 
     data = create_data_model(env)
 
+    if trajectory_length is None:
+        trajectory_length = int(data['episode_length'])
 
     # Create the routing index manager.
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
@@ -85,7 +94,7 @@ def solve_vrp(env):
     routing.AddDimension(
         transit_callback_index,
         0,  # allow waiting time
-        int(data['episode_length']),  # maximum time per vehicle
+        trajectory_length,  # maximum time per vehicle
         # int(data['episode_length'] * 0.4),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)

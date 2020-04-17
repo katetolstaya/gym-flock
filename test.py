@@ -1,12 +1,15 @@
 import gym
 import gym_flock
 import argparse
+import timeit
 
+start_time = timeit.default_timer()
 parser = argparse.ArgumentParser(description="My parser")
-parser.add_argument('--greedy', dest='optimal', action='store_false')
-parser.add_argument('--expert', dest='optimal', action='store_true')
+parser.add_argument('--greedy', dest='greedy', action='store_true')
+parser.add_argument('--expert', dest='expert', action='store_true')
 parser.add_argument('--render', dest='render', action='store_true')
-parser.set_defaults(optimal=False, render=False)
+parser.set_defaults(greedy=False, expert=False, render=False)
+
 args = parser.parse_args()
 
 # Initialize the gym environment
@@ -16,8 +19,10 @@ env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 
 # Run N episodes
-N = 20
+N = 10
 total_reward = 0
+
+start_time = timeit.default_timer()
 
 # for each episode
 for _ in range(N):
@@ -29,7 +34,7 @@ for _ in range(N):
     done = False
     while not done:
         # compute the baseline controller
-        if args.optimal:
+        if args.expert:
             try:
                 action = env.env.env.controller()
             except AssertionError:
@@ -37,9 +42,10 @@ for _ in range(N):
                 episode_reward = 0
                 done = False
                 continue
-        else:
-            # action = env.env.env.controller(random=True)
+        elif args.greedy:
             action = env.env.env.controller(random=False, greedy=True)
+        else:
+            action = env.env.env.controller(random=True)
 
         # simulate one step of the environment
         obs, reward, done, _ = env.step(action)
@@ -51,6 +57,10 @@ for _ in range(N):
     print(episode_reward)
     total_reward += episode_reward
 
-print(total_reward / N)
+elapsed = timeit.default_timer() - start_time
+
+print('Average reward: ' + str(total_reward / N))
+print('Elapsed time: ' + str(elapsed))
+
 
 env.close()
