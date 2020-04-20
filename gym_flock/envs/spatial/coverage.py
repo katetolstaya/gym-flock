@@ -53,39 +53,20 @@ GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 75
 
-USE_HORIZON = True
+# USE_HORIZON = True
+USE_HORIZON = False
 HORIZON = 15
 
 N_ROBOTS = 5
 
 XMAX = 120
 YMAX = 120
-# XMAX = 400
-# YMAX = 400
 
-# FRAC_ACTIVE = 1.0
 FRAC_ACTIVE = 0.5
 MIN_FRAC_ACTIVE = 0.5
 
-# unvisited_regions = [(0, 200, 200, 400), (200, 400, 0, 200)]
-# start_regions = [(75, 125, 150, 200)]
-
 unvisited_regions = [(-100, 100, -100, 100)]
-# unvisited_regions = [(0, 70, 60, 200), (130, 200, 0, 200)]
-# start_regions = [(0, 70, 0, 70)]
-#
-# unvisited_regions = [(0, 30, 25, 100), (55, 100, 0, 57)]
-# unvisited_regions = [(0, 35, 30, 70), (65, 100, 0, 100)]
-
-# start_regions = [(30, 70, 30, 70)]
 start_regions = [(-100, 100, -100, 100)]
-# start_regions = [(0, 100, 0, 100)]
-# start_regions = [(50, 150, 50, 150)]
-
-
-# start_regions = [(0, 70, 0, 70)]
-# start_regions = [(0, 35, 0, 35)]
-
 DELTA = 5.5
 
 
@@ -314,6 +295,9 @@ class CoverageEnv(gym.Env):
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         reward = np.sum(self.visited[self.n_robots:]) - old_sum
+        _, counts = np.unique(self.closest_targets, return_counts=True)
+        collision_penalty = np.sum(counts - 1)
+        reward -= collision_penalty
         self.episode_reward += reward
         return obs, reward, done
 

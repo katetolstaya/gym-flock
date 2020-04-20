@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description="My parser")
 parser.add_argument('--greedy', dest='greedy', action='store_true')
 parser.add_argument('--expert', dest='expert', action='store_true')
 parser.add_argument('--render', dest='render', action='store_true')
+# parser.add_argument('n', type=int, help='an integer for the accumulator')
 parser.set_defaults(greedy=False, expert=False, render=False)
 
 args = parser.parse_args()
@@ -19,7 +20,7 @@ env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 
 # Run N episodes
-N = 10
+N = 50
 total_reward = 0
 
 start_time = timeit.default_timer()
