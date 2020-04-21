@@ -168,11 +168,14 @@ class CoverageEnv(gym.Env):
         if action is not None:
             self.last_loc = self.closest_targets
 
-            next_loc = copy.copy(action)
+            next_locs = copy.copy(action)
             for i in range(self.n_robots):
-                next_loc[i] = self.mov_edges[1][np.where(self.mov_edges[0] == i)][action[i]]
+                next_loc = self.mov_edges[1][np.where(self.mov_edges[0] == i)][action[i]]
 
-            self.x[:self.n_robots, 0:2] = self.x[next_loc.flatten(), 0:2]
+                if next_loc not in next_locs[:i]:
+                    next_locs[i] = next_loc
+
+                    self.x[i, 0:2] = self.x[next_loc, 0:2]
 
         obs, reward, done = self._get_obs_reward()
         return obs, reward, done, {}
@@ -295,9 +298,9 @@ class CoverageEnv(gym.Env):
         done = self.step_counter == self.episode_length or np.sum(self.visited[self.n_robots:]) == self.n_targets
 
         reward = np.sum(self.visited[self.n_robots:]) - old_sum
-        _, counts = np.unique(self.closest_targets, return_counts=True)
-        collision_penalty = np.sum(counts - 1)
-        reward -= collision_penalty
+        # _, counts = np.unique(self.closest_targets, return_counts=True)
+        # collision_penalty = np.sum(counts - 1)
+        # reward -= collision_penalty
         self.episode_reward += reward
         return obs, reward, done
 
