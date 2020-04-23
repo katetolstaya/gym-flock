@@ -20,7 +20,6 @@ env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 
 # Run N episodes
-# N = args.n if args.n is not None else 20
 N = args.n
 total_reward = 0
 
