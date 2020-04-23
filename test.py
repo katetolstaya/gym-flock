@@ -3,7 +3,6 @@ import gym_flock
 import argparse
 import timeit
 
-start_time = timeit.default_timer()
 parser = argparse.ArgumentParser(description="My parser")
 parser.add_argument('-g', '--greedy', dest='greedy', action='store_true')
 parser.add_argument('-e', '--expert', dest='expert', action='store_true')
