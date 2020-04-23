@@ -5,11 +5,12 @@ import timeit
 
 start_time = timeit.default_timer()
 parser = argparse.ArgumentParser(description="My parser")
-parser.add_argument('--greedy', dest='greedy', action='store_true')
-parser.add_argument('--expert', dest='expert', action='store_true')
-parser.add_argument('--render', dest='render', action='store_true')
-# parser.add_argument('n', type=int, help='an integer for the accumulator')
-parser.set_defaults(greedy=False, expert=False, render=False)
+parser.add_argument('-g', '--greedy', dest='greedy', action='store_true')
+parser.add_argument('-e', '--expert', dest='expert', action='store_true')
+parser.add_argument('-r', '--render', dest='render', action='store_true')
+parser.add_argument('-n', '--n', nargs='?', const=20, type=int)
+
+parser.set_defaults(greedy=False, expert=False, render=False, n=20)
 
 args = parser.parse_args()
 
@@ -20,7 +21,8 @@ env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
 
 # Run N episodes
-N = 50
+# N = args.n if args.n is not None else 20
+N = args.n
 total_reward = 0
 
 start_time = timeit.default_timer()
@@ -62,6 +64,5 @@ elapsed = timeit.default_timer() - start_time
 
 print('Average reward: ' + str(total_reward / N))
 print('Elapsed time: ' + str(elapsed))
-
 
 env.close()
