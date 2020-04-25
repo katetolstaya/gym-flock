@@ -1,6 +1,12 @@
 from gym.envs.registration import register
 
 register(
+    id='CoverageFull-v0',
+    entry_point='gym_flock.envs.spatial:CoverageFullEnv',
+    max_episode_steps=100000,
+)
+
+register(
     id='CoverageARL-v0',
     entry_point='gym_flock.envs.spatial:CoverageARLEnv',
     max_episode_steps=100000,

@@ -379,7 +379,8 @@ class CoverageEnv(gym.Env):
             self.fig = plt.figure()
             self.ax = self.fig.add_subplot(111)
 
-            self._plot_text = plt.text(x=-170, y=45.0, s="", fontsize=32)
+            # self._plot_text = plt.text(x=-170, y=45.0, s="", fontsize=32)
+            self._plot_text = plt.text(x=100, y=100.0, s="", fontsize=32)
 
             for (i, j) in zip(self.motion_edges[0], self.motion_edges[1]):
                 self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
@@ -387,8 +388,9 @@ class CoverageEnv(gym.Env):
             # plot robots and targets and visited targets as scatter plot
             self.line2, = self.ax.plot([], [], 'ro', markersize=10)
             self.line3, = self.ax.plot([], [], 'b.')
-            self.line4, = self.ax.plot([], [], 'yo')
+            # self.line4, = self.ax.plot([], [], 'yo')
             self.line1, = self.ax.plot([], [], 'go', markersize=15, linewidth=0)
+            self.line4, = self.ax.plot([], [], 'yo', markersize=18)  # TODO
 
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
@@ -414,6 +416,9 @@ class CoverageEnv(gym.Env):
             neighborhood = np.where((self.graph_cost[robot_ind, :] <= HORIZON).flatten())
             self.line4.set_xdata(self.x[self.n_robots:, 0][neighborhood])
             self.line4.set_ydata(self.x[self.n_robots:, 1][neighborhood])
+
+        self.line4.set_xdata([self.x[0, 0]])  # TODO
+        self.line4.set_ydata([self.x[0, 1]])
 
         # draw updated figure
         self.fig.canvas.draw()

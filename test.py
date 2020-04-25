@@ -14,7 +14,8 @@ parser.set_defaults(greedy=False, expert=False, render=False, n=20)
 args = parser.parse_args()
 
 # Initialize the gym environment
-env_name = "CoverageARL-v0"
+# env_name = "CoverageARL-v0"
+env_name = "CoverageFull-v0"
 
 env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)

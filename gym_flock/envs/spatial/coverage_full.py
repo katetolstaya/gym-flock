@@ -15,40 +15,41 @@ from gym_flock.envs.spatial.make_map import from_occupancy
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix
 
-EPISODE_LENGTH = 75
+EPISODE_LENGTH = 100000
 
-N_ROBOTS = 3
+N_ROBOTS = 10
 
-NEARBY_STARTS = True
-NUM_SUBGRAPHS = 3
+NEARBY_STARTS = False
+NUM_SUBGRAPHS = 1
 MIN_GRAPH_SIZE = 200
 DOWNSAMPLE_RATE = 10
 PERIMETER_DELTA = 2.0
 CHECK_CONNECTED = True
 
+# Trying to generalize to higher res graph?
+# DOWNSAMPLE_RATE = 5
+# PERIMETER_DELTA = 4.0
+# CHECK_CONNECTED = False
+
 # padding for a variable number of graph edges
-PAD_NODES = True
-MAX_NODES = 1000
+PAD_NODES = False
+MAX_NODES = 1500
 
 MAP_RES = 0.5
 
 
-class CoverageARLEnv(CoverageEnv):
+class CoverageFullEnv(CoverageEnv):
 
     def __init__(self, n_robots=N_ROBOTS):
         """Initialize the mapping environment
         """
 
-        super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=EPISODE_LENGTH,
+        super(CoverageFullEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=EPISODE_LENGTH,
                                              res=MAP_RES * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES,
                                              nearby_starts=NEARBY_STARTS)
 
         # need to initialize graph to set up the observation space
         self.all_targets = None
-        self.min_xy = None
-        self.max_xy = None
-        self.range_xy = None
-        self.subgraph_size = None
         self.load_graph()
         targets, _ = self._generate_targets()
         self._initialize_graph(targets)
@@ -69,27 +70,5 @@ class CoverageARLEnv(CoverageEnv):
         else:
             self.all_targets = targets
 
-        self.min_xy = np.min(self.all_targets, axis=0).reshape((1, 2))
-        self.max_xy = np.max(self.all_targets, axis=0).reshape((1, 2))
-        self.range_xy = self.max_xy - self.min_xy
-        self.subgraph_size = self.range_xy / NUM_SUBGRAPHS
-
     def _generate_targets(self):
-        n_targets = 0
-        targets = None
-        while n_targets < MIN_GRAPH_SIZE:
-            graph_start = np.random.uniform(low=self.min_xy, high=self.max_xy - self.subgraph_size)
-            graph_end = graph_start + self.subgraph_size
-            targets = self.all_targets[
-                      np.all(np.logical_and(graph_start <= self.all_targets, self.all_targets < graph_end), axis=1),
-                      :]
-            if np.shape(targets)[0] < MIN_GRAPH_SIZE:
-                continue
-
-            r = np.linalg.norm(_get_pos_diff(targets), axis=2)
-            r[r > self.motion_radius] = 0
-            _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
-            targets = targets[labels == np.argmax(np.bincount(labels)), :]
-            n_targets = np.shape(targets)[0]
-        return targets, True
-
+        return self.all_targets, False
