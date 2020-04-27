@@ -16,7 +16,7 @@ rospy.init_node('gnn')
 # TODO smaller rate here?
 r = rospy.Rate(10.0)
 
-env_name = "CoverageARL-v0"
+env_name = "CoverageFull-v0"
 
 env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)
@@ -43,7 +43,8 @@ while True:
     obs, reward, done = arl_env._get_obs_reward()
 
     # compute local action
-    action = arl_env.controller(random=False, greedy=True)
+    # action = arl_env.controller(random=False, greedy=True)
+    action = arl_env.controller(random=True, greedy=True)
     next_loc = copy.copy(action.reshape((-1, 1)))
 
     # convert to next waypoint

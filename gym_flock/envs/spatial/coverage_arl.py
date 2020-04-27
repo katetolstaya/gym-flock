@@ -1,49 +1,33 @@
-from gym_flock.envs.spatial.coverage import CoverageEnv
-import gym
-from gym import spaces
-from gym.utils import seeding
 import numpy as np
-import copy
-import matplotlib.pyplot as plt
-from pathlib import Path
-from matplotlib.pyplot import gca
-from gym.spaces import Box
-
-from gym_flock.envs.spatial.utils import _get_graph_edges, _get_pos_diff
+from gym_flock.envs.spatial.coverage import CoverageEnv
+from gym_flock.envs.spatial.utils import _get_pos_diff
 from gym_flock.envs.spatial.make_map import from_occupancy
 
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix
 
-EPISODE_LENGTH = 75
 
-N_ROBOTS = 3
-
-NEARBY_STARTS = True
-NUM_SUBGRAPHS = 3
 MIN_GRAPH_SIZE = 200
-DOWNSAMPLE_RATE = 10
-PERIMETER_DELTA = 2.0
-CHECK_CONNECTED = True
-
-# padding for a variable number of graph edges
-PAD_NODES = True
-MAX_NODES = 1000
-
 MAP_RES = 0.5
 
 
 class CoverageARLEnv(CoverageEnv):
 
-    def __init__(self, n_robots=N_ROBOTS):
+    def __init__(self, n_robots=3, episode_length=75, pad_nodes=True, max_nodes=1000,
+                 nearby_starts=True, num_subgraphs=3, check_connected=True,
+                 downsample_rate=10, perimeter_delta=2.0):
         """Initialize the mapping environment
         """
 
-        super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=EPISODE_LENGTH,
-                                             res=MAP_RES * DOWNSAMPLE_RATE, pad_nodes=PAD_NODES, max_nodes=MAX_NODES,
-                                             nearby_starts=NEARBY_STARTS)
+        super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=episode_length,
+                                             res=MAP_RES * downsample_rate, pad_nodes=pad_nodes, max_nodes=max_nodes,
+                                             nearby_starts=nearby_starts)
 
         # need to initialize graph to set up the observation space
+        self.check_connected = check_connected
+        self.downsample_rate = downsample_rate
+        self.perimeter_delta = perimeter_delta
+        self.num_subgraphs = num_subgraphs
         self.all_targets = None
         self.min_xy = None
         self.max_xy = None
@@ -58,9 +42,9 @@ class CoverageARLEnv(CoverageEnv):
         self.x[:self.n_robots, 0:2] = self.x[self.closest_targets, 0:2]
 
     def load_graph(self):
-        targets = from_occupancy(downsample_rate=DOWNSAMPLE_RATE, perimeter_delta=PERIMETER_DELTA)
+        targets = from_occupancy(downsample_rate=self.downsample_rate, perimeter_delta=self.perimeter_delta)
 
-        if CHECK_CONNECTED:
+        if self.check_connected:
             # keep the largest connected sub-graph
             r = np.linalg.norm(_get_pos_diff(targets), axis=2)
             r[r > self.motion_radius] = 0
@@ -69,27 +53,29 @@ class CoverageARLEnv(CoverageEnv):
         else:
             self.all_targets = targets
 
-        self.min_xy = np.min(self.all_targets, axis=0).reshape((1, 2))
-        self.max_xy = np.max(self.all_targets, axis=0).reshape((1, 2))
-        self.range_xy = self.max_xy - self.min_xy
-        self.subgraph_size = self.range_xy / NUM_SUBGRAPHS
+        if self.num_subgraphs > 1:
+            self.min_xy = np.min(self.all_targets, axis=0).reshape((1, 2))
+            self.max_xy = np.max(self.all_targets, axis=0).reshape((1, 2))
+            self.range_xy = self.max_xy - self.min_xy
+            self.subgraph_size = self.range_xy / self.num_subgraphs
 
     def _generate_targets(self):
-        n_targets = 0
-        targets = None
-        while n_targets < MIN_GRAPH_SIZE:
-            graph_start = np.random.uniform(low=self.min_xy, high=self.max_xy - self.subgraph_size)
-            graph_end = graph_start + self.subgraph_size
-            targets = self.all_targets[
-                      np.all(np.logical_and(graph_start <= self.all_targets, self.all_targets < graph_end), axis=1),
-                      :]
-            if np.shape(targets)[0] < MIN_GRAPH_SIZE:
-                continue
+        if self.num_subgraphs > 1:
+            n_targets = 0
+            targets = None
+            while n_targets < MIN_GRAPH_SIZE:
+                graph_start = np.random.uniform(low=self.min_xy, high=self.max_xy - self.subgraph_size)
+                graph_end = graph_start + self.subgraph_size
+                targets = self.all_targets[
+                          np.all(np.logical_and(graph_start <= self.all_targets, self.all_targets < graph_end), axis=1),
+                          :]
+                if np.shape(targets)[0] < MIN_GRAPH_SIZE:
+                    continue
 
-            r = np.linalg.norm(_get_pos_diff(targets), axis=2)
-            r[r > self.motion_radius] = 0
-            _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
-            targets = targets[labels == np.argmax(np.bincount(labels)), :]
-            n_targets = np.shape(targets)[0]
-        return targets, True
-
+                r = np.linalg.norm(_get_pos_diff(targets), axis=2)
+                r[r > self.motion_radius] = 0
+                _, labels = connected_components(csgraph=csr_matrix(r), directed=False, return_labels=True)
+                targets = targets[labels == np.argmax(np.bincount(labels)), :]
+                n_targets = np.shape(targets)[0]
+            return targets, True
+        return self.all_targets, False

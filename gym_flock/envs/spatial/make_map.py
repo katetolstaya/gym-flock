@@ -261,13 +261,20 @@ def from_occupancy(downsample_rate, perimeter_delta):
     targets = vertices[flag, :]
 
     # xyz_min = [-321.0539855957031, -276.5395050048828, -9.511598587036133]
-    xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828 - 1.0]), (1, 2))
+    # xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828 - 1.0]), (1, 2))
+    xyz_min = np.reshape(np.array([-321.0539855957031, -276.5395050048828]), (1, 2))
     # xyz_max = [319.4460144042969, 277.9604949951172, 23.488401412963867]
     res = np.reshape(np.array([0.5, 0.5]), (1, 2)) * downsample_rate  # [0.5, 0.5, 1.0]
+    # targets = targets * res + xyz_min + res / 2
     targets = targets * res + xyz_min + res / 2
+    # targets = targets * res + xyz_min
 
-    targets = np.hstack((targets[:, 1].reshape((-1, 1)) - 2.5, 2.5 + -1.0 * targets[:, 0].reshape((-1, 1))))
+    targets = np.hstack((targets[:, 1].reshape((-1, 1)), -1.0 * targets[:, 0].reshape((-1, 1))))
 
+    # targets = targets + np.reshape(np.array([res/2, -276.5395050048828 - 1.0]), (1, 2))
+
+    # targets = np.hstack((targets[:, 1].reshape((-1, 1)) - 2.5, 2.5 + -1.0 * targets[:, 0].reshape((-1, 1))))
+    #
     # nearest_landmarks = np.random.choice(np.arange(np.shape(targets)[0]), size=(5,), replace=False)
     # nearest_landmarks = self.np_random.choice(2 * self.n_robots, size=(self.n_robots,), replace=False)
     # print(targets[nearest_landmarks + 5, 0:2])
