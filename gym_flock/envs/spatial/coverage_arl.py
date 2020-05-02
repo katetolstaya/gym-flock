@@ -15,13 +15,13 @@ class CoverageARLEnv(CoverageEnv):
 
     def __init__(self, n_robots=3, episode_length=75, pad_nodes=True, max_nodes=1000,
                  nearby_starts=True, num_subgraphs=3, check_connected=True,
-                 downsample_rate=10, perimeter_delta=2.0):
+                 downsample_rate=10, perimeter_delta=2.0, horizon=-1):
         """Initialize the mapping environment
         """
 
         super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=episode_length,
                                              res=MAP_RES * downsample_rate, pad_nodes=pad_nodes, max_nodes=max_nodes,
-                                             nearby_starts=nearby_starts)
+                                             nearby_starts=nearby_starts, horizon=horizon)
 
         # need to initialize graph to set up the observation space
         self.check_connected = check_connected

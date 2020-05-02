@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import gca
 from gym.spaces import Box
 
-from gym_flock.envs.spatial.make_map import generate_lattice,  generate_geometric_roads
+from gym_flock.envs.spatial.make_map import generate_lattice, generate_geometric_roads
 from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff
 from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
@@ -53,9 +53,9 @@ GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 75
 
-# USE_HORIZON = True
-USE_HORIZON = False
-HORIZON = 15
+HORIZON = -1
+
+MAX_COST = 1000
 
 N_ROBOTS = 5
 
@@ -73,13 +73,14 @@ DELTA = 5.5
 class CoverageEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
                  starts=start_regions, unvisiteds=unvisited_regions, init_graph=True, episode_length=EPISODE_LENGTH,
-                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES, nearby_starts=NEARBY_STARTS):
+                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES, nearby_starts=NEARBY_STARTS, horizon=HORIZON):
         """Initialize the mapping environment
         """
         super(CoverageEnv, self).__init__()
 
         self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
 
+        self.horizon = horizon
         self.episode_length = episode_length
         self.nearby_starts = nearby_starts
 
@@ -139,7 +140,6 @@ class CoverageEnv(gym.Env):
         self.line2 = None
         self.line3 = None
         self.line4 = None
-
 
         self.step_counter = 0
         self.n_motion_edges = 0
@@ -386,11 +386,13 @@ class CoverageEnv(gym.Env):
                 self.ax.plot([self.x[i, 0], self.x[j, 0]], [self.x[i, 1], self.x[j, 1]], 'b')
 
             # plot robots and targets and visited targets as scatter plot
+
             self.line2, = self.ax.plot([], [], 'ro', markersize=10)
             self.line3, = self.ax.plot([], [], 'b.')
             # self.line4, = self.ax.plot([], [], 'yo')
+
+            self.line4, = self.ax.plot([], [], 'y.')  # TODO
             self.line1, = self.ax.plot([], [], 'go', markersize=15, linewidth=0)
-            self.line4, = self.ax.plot([], [], 'yo', markersize=18)  # TODO
 
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
@@ -411,14 +413,14 @@ class CoverageEnv(gym.Env):
         self.line3.set_xdata(self.x[np.nonzero(self.visited.flatten()), 0])
         self.line3.set_ydata(self.x[np.nonzero(self.visited.flatten()), 1])
 
-        if self.graph_cost is not None:
+        if self.graph_cost is not None and self.horizon > -1:
             robot_ind = self.closest_targets[0] - self.n_robots
-            neighborhood = np.where((self.graph_cost[robot_ind, :] <= HORIZON).flatten())
+            neighborhood = np.where((self.graph_cost[robot_ind, :] <= self.horizon).flatten())
             self.line4.set_xdata(self.x[self.n_robots:, 0][neighborhood])
             self.line4.set_ydata(self.x[self.n_robots:, 1][neighborhood])
 
-        self.line4.set_xdata([self.x[0, 0]])  # TODO
-        self.line4.set_ydata([self.x[0, 1]])
+        # self.line4.set_xdata([self.x[0, 0]])  # TODO
+        # self.line4.set_ydata([self.x[0, 1]])
 
         # draw updated figure
         self.fig.canvas.draw()
@@ -480,11 +482,6 @@ class CoverageEnv(gym.Env):
 
         self.unvisited_region = [True] * (self.n_agents - self.n_robots)
 
-        if self.nearby_starts:
-            self.start_region = [0 < i <= self.n_robots + 25 for i in range(self.n_robots, self.n_agents)]
-        else:
-            self.start_region = [True] * (self.n_agents - self.n_robots)
-
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
         self.motion_edges, self.motion_dist = _get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
@@ -492,6 +489,12 @@ class CoverageEnv(gym.Env):
         # cache motion edges
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
         self.n_motion_edges = len(self.motion_edges[0])
+
+        if self.nearby_starts:
+            n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
+            self.start_region = [i in n_nearest for i in range(self.n_targets)]
+        else:
+            self.start_region = [True] * (self.n_agents - self.n_robots)
 
         self.senders[:self.n_motion_edges] = self.motion_edges[0]
         self.receivers[:self.n_motion_edges] = self.motion_edges[1]
@@ -524,11 +527,11 @@ class CoverageEnv(gym.Env):
         """
         edges = (self.motion_edges[0] - self.n_robots, self.motion_edges[1] - self.n_robots)
         time_matrix = np.ones((self.n_targets, self.n_targets)) * np.Inf
-        prev = np.zeros((self.n_targets, self.n_targets), dtype=int)
+        prev = np.ones((self.n_targets, self.n_targets), dtype=int) * -1
         np.fill_diagonal(time_matrix, 0.0)
-        np.fill_diagonal(prev, np.array(range(self.n_targets)))
-
         changed_last_iter = True  # prevents looping forever in disconnected graphs
+
+        n_steps = 0
 
         while changed_last_iter and np.sum(time_matrix) == np.Inf:
             changed_last_iter = False
@@ -541,7 +544,33 @@ class CoverageEnv(gym.Env):
                 changed_last_iter = changed_last_iter or (not np.array_equal(new_cost, time_matrix[:, receiver]))
                 time_matrix[:, receiver] = new_cost
 
+            n_steps += 1
+            if n_steps > self.horizon > -1:
+                break
+
+        time_matrix = np.nan_to_num(time_matrix, posinf=MAX_COST)
+
         return time_matrix, prev
+
+    def get_n_nearest(self, i, n):
+        """
+        Get n nearest nodes
+        :param i:
+        :param n:
+        :return:
+        """
+        n_nearest = set([i])
+
+        edges = (self.motion_edges[0] - self.n_robots, self.motion_edges[1] - self.n_robots)
+
+        while len(n_nearest) < n:
+            temp = set()
+            for (sender, receiver) in zip(edges[0], edges[1]):
+                if sender in n_nearest:
+                    temp.add(receiver)
+            n_nearest = n_nearest.union(temp)
+
+        return n_nearest
 
     @staticmethod
     def unpack_obs(obs, ob_space):
@@ -598,23 +627,29 @@ class CoverageEnv(gym.Env):
         if random:
             return self.np_random.choice(self.n_actions, size=(self.n_robots, 1))
 
-        # compute greedy solution
-        r = np.linalg.norm(self.x[:self.n_robots, 0:2].reshape((self.n_robots, 1, 2))
-                           - self.x[self.n_robots:, 0:2].reshape((1, self.n_targets, 2)), axis=2)
-        r[:, np.where(self.visited[self.n_robots:] == 1)] = np.Inf
-        greedy_loc = np.argmin(r, axis=1) + self.n_robots
-        curr_loc = self.closest_targets
-
         if self.graph_previous is None:
             self.graph_cost, self.graph_previous = self.construct_time_matrix()
+
+        curr_loc = self.closest_targets
+
+        # get nearest unvisited target
+        r = self.graph_cost[curr_loc - self.n_robots, :]
+        r[:, np.where(self.visited[self.n_robots:] == 1)] = MAX_COST
+        greedy_loc = np.argmin(r, axis=1) + self.n_robots
+
+        # if no unvisited targets in the horizon
+        for i in range(self.n_robots):
+            if r[i, greedy_loc[i] - self.n_robots] == MAX_COST:
+                greedy_loc[i] = -1
 
         if greedy:
             next_loc = greedy_loc
         else:
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
-            if self.cached_solution is None or self.step_counter % HORIZON == 0 and USE_HORIZON:
-                if USE_HORIZON:
-                    self.cached_solution = solve_vrp(self, HORIZON)
+
+            if self.cached_solution is None or self.horizon > -1:
+                if self.horizon > -1:
+                    self.cached_solution = solve_vrp(self, self.horizon)
                 else:
                     self.cached_solution = solve_vrp(self)
 
@@ -622,22 +657,33 @@ class CoverageEnv(gym.Env):
 
             for i in range(self.n_robots):
 
+                # use the next waypoint in cached solution
                 if len(self.cached_solution[i]) > 1:
                     if curr_loc[i] == self.cached_solution[i][0]:
                         self.cached_solution[i] = self.cached_solution[i][1:]
 
                     next_loc[i] = self.cached_solution[i][0]
-                elif len(self.cached_solution[i]) == 1:
-                    if curr_loc[i] == self.cached_solution[i][0]:
-                        self.cached_solution[i] = []
-                    next_loc[i] = greedy_loc[i]
                 else:
-                    next_loc[i] = greedy_loc[i]
+                    if len(self.cached_solution[i]) == 1:
+                        if curr_loc[i] == self.cached_solution[i][0]:
+                            self.cached_solution[i] = []
+                        else:
+                            next_loc[i] = self.cached_solution[i][0]
+                    else:
+                        # if the cached solution is done, use the greedy solution
+                        next_loc[i] = greedy_loc[i]
 
-        # use the precomputed predecessor matrix to select the next node - necessary for avoiding obstacles
-        next_loc = self.graph_previous[next_loc - self.n_robots, curr_loc - self.n_robots] + self.n_robots
         u_ind = np.zeros((self.n_robots, 1), dtype=np.int32)
         for i in range(self.n_robots):
-            u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_loc[i])[0]
+
+            # if the next location is unreachable with the set horizon
+            if next_loc[i] == -1 or self.graph_previous[next_loc[i] - self.n_robots, curr_loc[i] - self.n_robots] == -1:
+                u_ind[i] = self.np_random.choice(self.n_actions)
+            else:
+                # use the precomputed predecessor matrix to select the next step
+                next_step = self.graph_previous[
+                                next_loc[i] - self.n_robots, curr_loc[i] - self.n_robots] + self.n_robots
+
+                u_ind[i] = np.where(self.mov_edges[1][np.where(self.mov_edges[0] == i)] == next_step)[0][0]
 
         return u_ind

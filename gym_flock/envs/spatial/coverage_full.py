@@ -10,6 +10,7 @@ class CoverageFullEnv(CoverageARLEnv):
         """Initialize the mapping environment
         """
 
-        super(CoverageFullEnv, self).__init__(n_robots=10, episode_length=100000, pad_nodes=False, max_nodes=1500,
+        super(CoverageFullEnv, self).__init__(n_robots=10, episode_length=10000, pad_nodes=False, max_nodes=1500,
                                               nearby_starts=False, num_subgraphs=1, check_connected=True,
-                                              downsample_rate=DOWNSAMPLE_RATE, perimeter_delta=PERIMETER_DELTA)
+                                              downsample_rate=DOWNSAMPLE_RATE, perimeter_delta=PERIMETER_DELTA,
+                                              horizon=25)

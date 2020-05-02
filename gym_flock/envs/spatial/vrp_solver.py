@@ -89,13 +89,11 @@ def solve_vrp(env, trajectory_length=None):
 
     # Define cost of each arc.
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-    # print(int(data['episode_length']))
     time_str = 'Time'
     routing.AddDimension(
         transit_callback_index,
         0,  # allow waiting time
         trajectory_length,  # maximum time per vehicle
-        # int(data['episode_length'] * 0.4),  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time_str)
     time_dimension = routing.GetDimensionOrDie(time_str)
