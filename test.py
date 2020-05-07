@@ -7,15 +7,18 @@ parser = argparse.ArgumentParser(description="My parser")
 parser.add_argument('-g', '--greedy', dest='greedy', action='store_true')
 parser.add_argument('-e', '--expert', dest='expert', action='store_true')
 parser.add_argument('-r', '--render', dest='render', action='store_true')
+parser.add_argument('-f', '--full', dest='full', action='store_true')
 parser.add_argument('-n', '--n', nargs='?', const=20, type=int)
 
-parser.set_defaults(greedy=False, expert=False, render=False, n=20)
+parser.set_defaults(greedy=False, expert=False, render=False, n=20, full=False)
 
 args = parser.parse_args()
 
 # Initialize the gym environment
-env_name = "CoverageARL-v0"
-# env_name = "CoverageFull-v0"
+if args.full:
+    env_name = "CoverageFull-v0"
+else:
+    env_name = "CoverageARL-v0"
 
 env = gym.make(env_name)
 env = gym.wrappers.FlattenDictWrapper(env, dict_keys=env.env.keys)

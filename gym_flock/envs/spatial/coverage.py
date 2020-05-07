@@ -413,9 +413,11 @@ class CoverageEnv(gym.Env):
         self.line3.set_xdata(self.x[np.nonzero(self.visited.flatten()), 0])
         self.line3.set_ydata(self.x[np.nonzero(self.visited.flatten()), 1])
 
-        if self.graph_cost is not None and self.horizon > -1:
+        horizon = self.horizon
+        # horizon = 20
+        if self.graph_cost is not None and horizon > -1:
             robot_ind = self.closest_targets[0] - self.n_robots
-            neighborhood = np.where((self.graph_cost[robot_ind, :] <= self.horizon).flatten())
+            neighborhood = np.where((self.graph_cost[robot_ind, :] <= horizon).flatten())
             self.line4.set_xdata(self.x[self.n_robots:, 0][neighborhood])
             self.line4.set_ydata(self.x[self.n_robots:, 1][neighborhood])
 
