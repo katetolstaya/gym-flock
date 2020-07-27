@@ -41,7 +41,7 @@ for _ in range(N):
         # compute the baseline controller
         if args.expert:
             try:
-                action = env.env.env.controller()
+                action = env.env.env.controller(random=False, greedy=False, reset_solution=False)
             except AssertionError:
                 obs = env.reset()
                 episode_reward = 0

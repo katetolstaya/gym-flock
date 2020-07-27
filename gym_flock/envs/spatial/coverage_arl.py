@@ -15,7 +15,7 @@ class CoverageARLEnv(CoverageEnv):
 
     def __init__(self, n_robots=3, episode_length=75, pad_nodes=True, max_nodes=1000,
                  nearby_starts=True, num_subgraphs=3, check_connected=True,
-                 downsample_rate=10, perimeter_delta=2.0, horizon=-1):
+                 downsample_rate=10, perimeter_delta=2.0, horizon=15):
         """Initialize the mapping environment
         """
 
