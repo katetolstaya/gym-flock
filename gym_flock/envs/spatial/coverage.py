@@ -621,7 +621,7 @@ class CoverageEnv(gym.Env):
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
 
-    def controller(self, random=False, greedy=GREEDY_CONTROLLER):
+    def controller(self, random=False, greedy=GREEDY_CONTROLLER, reset_solution=False):
         """
         Greedy controller picks the nearest unvisited target
         :return: control action for each robot (global index of agent chosen)
@@ -649,7 +649,7 @@ class CoverageEnv(gym.Env):
         else:
             assert ortools is not None, "Vehicle routing controller is not available if OR-Tools is not imported."
 
-            if self.cached_solution is None or self.horizon > -1:
+            if self.cached_solution is None or self.horizon > -1 or reset_solution:
                 if self.horizon > -1:
                     self.cached_solution = solve_vrp(self, self.horizon)
                 else:
