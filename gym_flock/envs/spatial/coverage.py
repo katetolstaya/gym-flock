@@ -39,11 +39,12 @@ N_GLOB_FEAT = 1
 NEARBY_STARTS = True
 
 COMM_EDGES = False
+N_HOP_EDGES = 3
 
 # padding for a variable number of graph edges
 PAD_NODES = True
 MAX_NODES = 1000
-MAX_EDGES = 4
+MAX_EDGES = 10
 
 # number of edges/actions for each robot, fixed
 PAD_ACTIONS = True
@@ -492,15 +493,25 @@ class CoverageEnv(gym.Env):
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
         self.n_motion_edges = len(self.motion_edges[0])
 
+        if N_HOP_EDGES > 1:
+            self.graph_cost, self.graph_previous = self.construct_time_matrix()
+            sender, receiver = np.where(self.graph_cost <= N_HOP_EDGES)
+            costs = self.graph_cost[(sender, receiver)]
+            self.n_motion_edges = len(sender)
+
+            self.senders[:self.n_motion_edges] = sender + self.n_robots
+            self.receivers[:self.n_motion_edges] = receiver + self.n_robots
+            self.edges[:self.n_motion_edges, 0] = costs
+        else:
+            self.senders[:self.n_motion_edges] = self.motion_edges[0]
+            self.receivers[:self.n_motion_edges] = self.motion_edges[1]
+            self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
+
         if self.nearby_starts:
             n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
             self.start_region = [i in n_nearest for i in range(self.n_targets)]
         else:
             self.start_region = [True] * (self.n_agents - self.n_robots)
-
-        self.senders[:self.n_motion_edges] = self.motion_edges[0]
-        self.receivers[:self.n_motion_edges] = self.motion_edges[1]
-        self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
 
         # problem's observation and action spaces
         self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
