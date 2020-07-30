@@ -39,7 +39,7 @@ N_GLOB_FEAT = 1
 NEARBY_STARTS = True
 
 COMM_EDGES = False
-N_HOP_EDGES = 3
+N_HOP_EDGES = 5
 
 # padding for a variable number of graph edges
 PAD_NODES = True
