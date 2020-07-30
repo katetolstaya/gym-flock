@@ -39,7 +39,7 @@ N_GLOB_FEAT = 1
 NEARBY_STARTS = True
 
 COMM_EDGES = False
-N_HOP_EDGES = 5
+N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
 PAD_NODES = True
@@ -662,7 +662,7 @@ class CoverageEnv(gym.Env):
 
             if self.cached_solution is None or self.horizon > -1 or reset_solution:
                 if self.horizon > -1:
-                    self.cached_solution = solve_vrp(self, self.horizon)
+                    self.cached_solution = solve_vrp(self, min(self.horizon, EPISODE_LENGTH - self.step_counter))
                 else:
                     self.cached_solution = solve_vrp(self)
 
