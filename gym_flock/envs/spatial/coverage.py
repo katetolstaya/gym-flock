@@ -44,7 +44,7 @@ N_HOP_EDGES = 1
 # padding for a variable number of graph edges
 PAD_NODES = True
 MAX_NODES = 1000
-MAX_EDGES = 10
+MAX_EDGES = 4
 
 # number of edges/actions for each robot, fixed
 PAD_ACTIONS = True
