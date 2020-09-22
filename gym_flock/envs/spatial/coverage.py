@@ -8,7 +8,7 @@ from matplotlib.pyplot import gca
 from gym.spaces import Box
 
 from gym_flock.envs.spatial.make_map import generate_lattice, generate_geometric_roads
-from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff
+from gym_flock.envs.spatial.utils import _get_graph_edges, _get_k_edges, _get_pos_diff, _nodes_within_radius
 from gym_flock.envs.spatial.vrp_solver import solve_vrp
 
 from scipy.sparse.csgraph import connected_components
@@ -35,10 +35,13 @@ N_NODE_FEAT = 3
 N_EDGE_FEAT = 2
 N_GLOB_FEAT = 1
 
+LAST_EDGE_FEATURE = True
+USE_POS_DELTA = False
+
 # NEARBY_STARTS = False
 NEARBY_STARTS = True
 
-COMM_EDGES = False
+COMM_EDGES = True
 N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
@@ -58,7 +61,7 @@ HORIZON = -1
 
 MAX_COST = 1000
 
-N_ROBOTS = 5
+N_ROBOTS = 6
 
 XMAX = 120
 YMAX = 120
@@ -69,6 +72,8 @@ MIN_FRAC_ACTIVE = 0.5
 unvisited_regions = [(-100, 100, -100, 100)]
 start_regions = [(-100, 100, -100, 100)]
 DELTA = 5.5
+
+HIDE_NODES = True
 
 
 class CoverageEnv(gym.Env):
@@ -167,6 +172,9 @@ class CoverageEnv(gym.Env):
         :return: described above
         """
         if action is not None:
+            if type(action) == np.ndarray:
+                action = action.flatten().tolist()
+
             self.last_loc = self.closest_targets
 
             next_locs = copy.copy(action)
@@ -205,8 +213,9 @@ class CoverageEnv(gym.Env):
         receivers = receivers.astype(np.int)
 
         # compute edge distances
+        diff = self.x[senders, :] - self.x[receivers, :]
         dists = np.linalg.norm(self.x[senders, :] - self.x[receivers, :], axis=1)
-        return (senders, receivers), dists
+        return (senders, receivers), dists, diff
 
     def _get_obs_reward(self):
         """
@@ -221,11 +230,11 @@ class CoverageEnv(gym.Env):
         """
 
         if PAD_ACTIONS:
-            action_edges, action_dist = self.get_action_edges()
+            action_edges, action_dist, action_diff = self.get_action_edges()
         else:
-            action_edges, action_dist = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
-                                                     self.x[self.n_robots:self.n_agents, 0:2],
-                                                     allow_nearest=ALLOW_NEAREST)
+            action_edges, action_dist, action_diff = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
+                                                                  self.x[self.n_robots:self.n_agents, 0:2],
+                                                                  allow_nearest=ALLOW_NEAREST)
             action_edges = (action_edges[0], action_edges[1] + self.n_robots)
 
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
@@ -240,27 +249,30 @@ class CoverageEnv(gym.Env):
 
         if COMM_EDGES:
             # communication edges among robots
-            comm_edges, comm_dist = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
+            comm_edges, comm_dist, comm_diff = _get_graph_edges(self.comm_radius, self.x[:self.n_robots, 0:2])
+            senders = np.concatenate((action_edges[1], comm_edges[0]))
+            receivers = np.concatenate((action_edges[0], comm_edges[1]))
 
-            # planning edges from robots to landmarks
-            plan_edges, plan_dist = _get_graph_edges(1.0, self.x[:self.n_robots, 0:2],
-                                                     self.x[self.n_robots:self.n_agents, 0:2])
-            plan_edges = (plan_edges[0], plan_edges[1] + self.n_robots)
-
-            senders = np.concatenate((plan_edges[0], action_edges[1], comm_edges[0]))
-            receivers = np.concatenate((plan_edges[1], action_edges[0], comm_edges[1]))
-            edges_dist = np.concatenate((plan_dist, action_dist, comm_dist)).reshape((-1, N_EDGE_FEAT))
-
+            if not USE_POS_DELTA:
+                edges_dist = np.concatenate((action_dist, comm_dist)).reshape((-1, 1))
+            else:
+                edges_diff = np.concatenate((action_diff, comm_diff)).reshape((-1, 2))
         else:
             senders = action_edges[1]
             receivers = action_edges[0]
-            edges_dist = action_dist.reshape((-1, 1))
+            if not USE_POS_DELTA:
+                edges_dist = action_dist.reshape((-1, 1))
+            else:
+                edges_diff = action_diff
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # normalize the edge distance by resolution
-        edges_dist = edges_dist / self.res
+        if not USE_POS_DELTA:
+            edges_dist = edges_dist / self.res
+        else:
+            edges_diff = edges_diff / self.res
 
-        if N_EDGE_FEAT == 2:
+        if LAST_EDGE_FEATURE:
             last_edges = np.zeros((len(senders), 1), dtype=np.bool)
             if self.last_loc is not None:
                 for i in range(self.n_robots):
@@ -269,10 +281,16 @@ class CoverageEnv(gym.Env):
                                                    (-1, 1)))
                     last_edges = last_edges.reshape((-1, 1))
 
-            edges = np.hstack((last_edges, edges_dist)).reshape((-1, N_EDGE_FEAT))
+            if not USE_POS_DELTA:
+                edges = np.concatenate((last_edges, edges_dist), axis=1).reshape((-1, 2))
+            else:
+                edges = np.concatenate((last_edges, edges_diff), axis=1).reshape((-1, 3))
 
         else:
-            edges = edges_dist.reshape((-1, N_EDGE_FEAT))
+            if not USE_POS_DELTA:
+                edges = edges_dist.reshape((-1, 1))
+            else:
+                edges = edges_diff.reshape((-1, 2))
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -287,12 +305,22 @@ class CoverageEnv(gym.Env):
         self.nodes[0:self.n_agents, 1] = self.landmark_flag.flatten()
         self.nodes[0:self.n_agents, 2] = np.logical_not(self.visited).flatten()
 
+        if HIDE_NODES:
+            seen_nodes = _nodes_within_radius(4.0 * DELTA, self.x[:self.n_robots, 0:2], self.x[0:self.n_agents, 0:2])
+            self.discovered_nodes[0:self.n_agents] = (self.discovered_nodes[0:self.n_agents].reshape((-1, 1)) + seen_nodes.astype(np.float)) > 0.0
+
+            seen_edges = self.discovered_nodes[self.senders].flatten() * self.discovered_nodes[self.receivers].flatten()
+            seen_edges[-len(senders):] = 1.0
+            out_senders = np.where(seen_edges > 0, self.senders, -1)
+        else:
+            out_senders = self.senders
+
         # if N_NODE_FEAT == 4:
         #     self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
         step_array = np.array([self.step_counter]).reshape((1, 1))
 
-        obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': self.senders, 'receivers': self.receivers,
+        obs = {'nodes': self.nodes, 'edges': self.edges, 'senders': out_senders, 'receivers': self.receivers,
                'step': step_array}
 
         self.step_counter += 1
@@ -353,6 +381,10 @@ class CoverageEnv(gym.Env):
         self.visited.fill(1)
         self.visited[random_unvisited_targets] = 0
 
+        if HIDE_NODES:
+            self.discovered_nodes = np.vstack(
+                (np.ones((self.n_robots, 1)), np.zeros((self.max_nodes - self.n_robots, 1))))
+
         # self.node_history = np.zeros((self.n_agents, 1))
         obs, _, _ = self._get_obs_reward()
         return obs
@@ -389,7 +421,7 @@ class CoverageEnv(gym.Env):
             # plot robots and targets and visited targets as scatter plot
 
             self.line2, = self.ax.plot([], [], 'ro', markersize=10)
-            self.line3, = self.ax.plot([], [], 'b.')
+            self.line3, = self.ax.plot([], [], 'bo', markersize=5)
             # self.line4, = self.ax.plot([], [], 'yo')
 
             self.line4, = self.ax.plot([], [], 'y.')  # TODO
@@ -406,16 +438,21 @@ class CoverageEnv(gym.Env):
         self.line1.set_ydata(self.x[0:self.n_robots, 1])
 
         # update unvisited target plot
-        unvisited = np.where((self.visited[self.n_robots:] == 0).flatten())
+        if HIDE_NODES:
+            unvisited = np.where((np.logical_and(self.visited[self.n_robots:] == 0, self.discovered_nodes[self.n_robots:self.n_agents] > 0)).flatten())
+            visited = np.where((np.logical_and(self.visited[self.n_robots:] != 0, self.discovered_nodes[self.n_robots:self.n_agents] > 0)).flatten())
+        else:
+            unvisited = np.where((self.visited[self.n_robots:] == 0).flatten())
+            visited = np.where((self.visited[self.n_robots:] != 0).flatten())
+
         self.line2.set_xdata(self.x[self.n_robots:, 0][unvisited])
         self.line2.set_ydata(self.x[self.n_robots:, 1][unvisited])
 
         # update visited target plot
-        self.line3.set_xdata(self.x[np.nonzero(self.visited.flatten()), 0])
-        self.line3.set_ydata(self.x[np.nonzero(self.visited.flatten()), 1])
+        self.line3.set_xdata(self.x[self.n_robots:, 0][visited])
+        self.line3.set_ydata(self.x[self.n_robots:, 1][visited])
 
         horizon = self.horizon
-        # horizon = 20
         if self.graph_cost is not None and horizon > -1:
             robot_ind = self.closest_targets[0] - self.n_robots
             neighborhood = np.where((self.graph_cost[robot_ind, :] <= horizon).flatten())
@@ -475,7 +512,11 @@ class CoverageEnv(gym.Env):
         self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
-        # self.node_history = np.zeros((self.n_agents, 1))
+        if HIDE_NODES:
+            self.discovered_nodes = np.vstack(
+                (np.ones((self.n_robots, 1)), np.zeros((self.max_nodes - self.n_robots, 1))))
+        # else:
+        #     self.discovered_nodes = np.ones((self.max_nodes, 1))
 
         # communication radius squared
         self.comm_radius2 = self.comm_radius * self.comm_radius
@@ -487,8 +528,9 @@ class CoverageEnv(gym.Env):
 
         self.agent_ids = np.reshape((range(self.n_agents)), (-1, 1))
 
-        self.motion_edges, self.motion_dist = _get_graph_edges(self.motion_radius, self.x[self.n_robots:, 0:2],
-                                                               self_loops=True)
+        self.motion_edges, self.motion_dist, self.motion_diff = _get_graph_edges(self.motion_radius,
+                                                                                 self.x[self.n_robots:, 0:2],
+                                                                                 self_loops=True)
         # cache motion edges
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
         self.n_motion_edges = len(self.motion_edges[0])
@@ -505,7 +547,10 @@ class CoverageEnv(gym.Env):
         else:
             self.senders[:self.n_motion_edges] = self.motion_edges[0]
             self.receivers[:self.n_motion_edges] = self.motion_edges[1]
-            self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
+            if not USE_POS_DELTA:
+                self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
+            else:
+                self.edges[:self.n_motion_edges, 0:2] = self.motion_diff.reshape((-1,2))
 
         if self.nearby_starts:
             n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
@@ -586,7 +631,16 @@ class CoverageEnv(gym.Env):
         return n_nearest
 
     @staticmethod
-    def unpack_obs(obs, ob_space):
+    def get_number_nodes(ob_space):
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        return n_nodes
+
+    @staticmethod
+    def get_node_features():
+        return N_NODE_FEAT
+
+    @staticmethod
+    def unpack_obs(obs, ob_space, state=None):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
         # assume flattened box
@@ -603,8 +657,15 @@ class CoverageEnv(gym.Env):
         tensors = tf.split(obs, sizes, axis=1)
         tensors = [tf.reshape(t, (-1,) + s) for (t, s) in zip(tensors, shapes)]
         nodes, edges, senders, receivers, globs = tensors
+
         batch_size = tf.shape(nodes)[0]
         nodes = tf.reshape(nodes, (-1, dim_nodes))
+
+        if state is not None:
+            reshaped_state = tf.reshape(state, (-1, 1))
+            padded_state = tf.pad(reshaped_state, [[0, tf.shape(nodes)[0] - tf.shape(reshaped_state)[0]], [0, 0]])
+            nodes = tf.concat([nodes, padded_state], axis=1)
+
         n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
 
         # compute edge mask and number of edges per graph
