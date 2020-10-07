@@ -31,17 +31,20 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
-N_NODE_FEAT = 3
-N_EDGE_FEAT = 2
+N_NODE_FEAT = 4
+N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
-LAST_EDGE_FEATURE = True
+HIDE_NODES = False
+COLLISION_CHECKS = True
+COMM_EDGES = False
+
+LAST_EDGE_FEATURE = False
 USE_POS_DELTA = False
+# USE_ROBOT_IDS = False
 
 # NEARBY_STARTS = False
 NEARBY_STARTS = True
-
-COMM_EDGES = True
 N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
@@ -57,7 +60,7 @@ GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 75
 
-HORIZON = -1
+HORIZON = 10
 
 MAX_COST = 1000
 
@@ -72,9 +75,6 @@ MIN_FRAC_ACTIVE = 0.5
 unvisited_regions = [(-100, 100, -100, 100)]
 start_regions = [(-100, 100, -100, 100)]
 DELTA = 5.5
-
-HIDE_NODES = True
-
 
 class CoverageEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
@@ -127,7 +127,7 @@ class CoverageEnv(gym.Env):
         self.frac_active_targets = frac_active_targets
 
         # graph parameters
-        self.comm_radius = 20.0
+        self.comm_radius = 100.0
         self.motion_radius = self.res * 1.2
         self.obs_radius = self.res * 1.2
 
@@ -181,12 +181,13 @@ class CoverageEnv(gym.Env):
             for i in range(self.n_robots):
                 next_loc = self.mov_edges[1][np.where(self.mov_edges[0] == i)][action[i]]
 
-                if next_loc not in next_locs[:i]:
+                if not COLLISION_CHECKS or next_loc not in next_locs[:i]:
                     next_locs[i] = next_loc
 
                     self.x[i, 0:2] = self.x[next_loc, 0:2]
 
         obs, reward, done = self._get_obs_reward()
+        # self.render()
         return obs, reward, done, {}
 
     def get_action_edges(self):
@@ -239,6 +240,10 @@ class CoverageEnv(gym.Env):
 
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
 
+        action_edges = (np.concatenate([action_edges[0], action_edges[1]], axis=0),
+                        np.concatenate([action_edges[1], action_edges[0]], axis=0))
+        action_dist = np.concatenate([action_dist, action_dist], axis=0)
+
         self.mov_edges = action_edges
 
         old_sum = np.sum(self.visited[self.n_robots:self.n_agents])
@@ -256,14 +261,14 @@ class CoverageEnv(gym.Env):
             if not USE_POS_DELTA:
                 edges_dist = np.concatenate((action_dist, comm_dist)).reshape((-1, 1))
             else:
-                edges_diff = np.concatenate((action_diff, comm_diff)).reshape((-1, 2))
+                edges_diff = np.concatenate((np.concatenate((action_diff, comm_diff)).reshape((-1, 2)), np.concatenate((action_dist, comm_dist)).reshape((-1, 1))), axis=1)
         else:
             senders = action_edges[1]
             receivers = action_edges[0]
             if not USE_POS_DELTA:
                 edges_dist = action_dist.reshape((-1, 1))
             else:
-                edges_diff = action_diff
+                edges_diff = np.concatenate((action_diff, action_dist.reshape((-1, 1))), axis=1)
         assert len(senders) + self.n_motion_edges <= np.shape(self.senders)[0], "Increase MAX_EDGES"
 
         # normalize the edge distance by resolution
@@ -284,13 +289,13 @@ class CoverageEnv(gym.Env):
             if not USE_POS_DELTA:
                 edges = np.concatenate((last_edges, edges_dist), axis=1).reshape((-1, 2))
             else:
-                edges = np.concatenate((last_edges, edges_diff), axis=1).reshape((-1, 3))
+                edges = np.concatenate((last_edges, edges_diff), axis=1).reshape((-1, 4))
 
         else:
             if not USE_POS_DELTA:
                 edges = edges_dist.reshape((-1, 1))
             else:
-                edges = edges_diff.reshape((-1, 2))
+                edges = edges_diff.reshape((-1, 3))
 
         # -1 indicates unused edges
         self.senders[self.n_motion_edges:] = -1
@@ -305,9 +310,13 @@ class CoverageEnv(gym.Env):
         self.nodes[0:self.n_agents, 1] = self.landmark_flag.flatten()
         self.nodes[0:self.n_agents, 2] = np.logical_not(self.visited).flatten()
 
+        # if USE_ROBOT_IDS:
+        #     self.nodes[0:self.n_robots, 3] = np.arange(start=1, stop=self.n_robots+1, step=1).flatten()
+
         if HIDE_NODES:
             seen_nodes = _nodes_within_radius(4.0 * DELTA, self.x[:self.n_robots, 0:2], self.x[0:self.n_agents, 0:2])
             self.discovered_nodes[0:self.n_agents] = (self.discovered_nodes[0:self.n_agents].reshape((-1, 1)) + seen_nodes.astype(np.float)) > 0.0
+            self.nodes = self.nodes * self.discovered_nodes.reshape((-1, 1))
 
             seen_edges = self.discovered_nodes[self.senders].flatten() * self.discovered_nodes[self.receivers].flatten()
             seen_edges[-len(senders):] = 1.0
@@ -640,7 +649,7 @@ class CoverageEnv(gym.Env):
         return N_NODE_FEAT
 
     @staticmethod
-    def unpack_obs(obs, ob_space, state=None):
+    def unpack_obs(obs, ob_space):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
         # assume flattened box
@@ -660,13 +669,11 @@ class CoverageEnv(gym.Env):
 
         batch_size = tf.shape(nodes)[0]
         nodes = tf.reshape(nodes, (-1, dim_nodes))
-
-        if state is not None:
-            reshaped_state = tf.reshape(state, (-1, 1))
-            padded_state = tf.pad(reshaped_state, [[0, tf.shape(nodes)[0] - tf.shape(reshaped_state)[0]], [0, 0]])
-            nodes = tf.concat([nodes, padded_state], axis=1)
-
         n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
+
+        cum_n_nodes = tf.cast(tf.reshape(tf.math.cumsum(n_node, exclusive=True), (-1, 1, 1)), dtype=tf.float32)
+        senders = senders + cum_n_nodes
+        receivers = receivers + cum_n_nodes
 
         # compute edge mask and number of edges per graph
         mask = tf.reshape(tf.not_equal(senders, -1), (batch_size, -1))  # padded edges have sender = -1
@@ -692,6 +699,61 @@ class CoverageEnv(gym.Env):
         receivers = tf.cast(receivers, tf.int32)
 
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
+
+    @staticmethod
+    def unpack_obs_state(obs, ob_space, state, dim_state):
+        assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
+
+        # assume flattened box
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        max_edges = MAX_EDGES
+        max_n_edges = n_nodes * max_edges
+        dim_edges = N_EDGE_FEAT
+        dim_nodes = N_NODE_FEAT
+
+        # unpack node and edge data from flattened array
+        # order given by self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
+        shapes = ((n_nodes, dim_nodes), (max_n_edges, dim_edges), (max_n_edges, 1), (max_n_edges, 1), (1, N_GLOB_FEAT))
+        sizes = [np.prod(s) for s in shapes]
+        tensors = tf.split(obs, sizes, axis=1)
+        tensors = [tf.reshape(t, (-1,) + s) for (t, s) in zip(tensors, shapes)]
+        nodes, edges, senders, receivers, globs = tensors
+
+        batch_size = tf.shape(nodes)[0]
+        nodes = tf.reshape(nodes, (-1, dim_nodes))
+        reshaped_state = tf.reshape(state, (-1, dim_state*2))
+        nodes1 = tf.concat([nodes, reshaped_state[:, :dim_state]], axis=1)
+        nodes2 = tf.concat([nodes, reshaped_state[:, dim_state:]], axis=1)
+        n_node = tf.fill((batch_size,), n_nodes)  # assume n nodes is fixed
+
+        cum_n_nodes = tf.cast(tf.reshape(tf.math.cumsum(n_node, exclusive=True), (-1, 1, 1)), dtype=tf.float32)
+        senders = senders + cum_n_nodes
+        receivers = receivers + cum_n_nodes
+
+        # compute edge mask and number of edges per graph
+        mask = tf.reshape(tf.not_equal(senders, -1), (batch_size, -1))  # padded edges have sender = -1
+        n_edge = tf.reduce_sum(tf.cast(mask, tf.float32), axis=1)
+        mask = tf.reshape(mask, (-1,))
+
+        # flatten edge data
+        edges = tf.reshape(edges, (-1, dim_edges))
+        senders = tf.reshape(senders, (-1,))
+        receivers = tf.reshape(receivers, (-1,))
+
+        # mask edges
+        edges = tf.boolean_mask(edges, mask, axis=0)
+        senders = tf.boolean_mask(senders, mask)
+        receivers = tf.boolean_mask(receivers, mask)
+
+        globs = tf.reshape(globs, (batch_size, N_GLOB_FEAT))
+
+        # cast all indices to int
+        n_node = tf.cast(n_node, tf.int32)
+        n_edge = tf.cast(n_edge, tf.int32)
+        senders = tf.cast(senders, tf.int32)
+        receivers = tf.cast(receivers, tf.int32)
+
+        return batch_size, n_node, nodes1, nodes2, n_edge, edges, senders, receivers, globs
 
     def controller(self, random=False, greedy=GREEDY_CONTROLLER, reset_solution=False):
         """
