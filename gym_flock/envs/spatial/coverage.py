@@ -31,13 +31,15 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
-N_NODE_FEAT = 4
+N_NODE_FEAT = 3
 N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
 HIDE_NODES = False
+REVISIT_NODES = False
 COLLISION_CHECKS = True
 COMM_EDGES = False
+USE_NODE_HISTORY = False
 
 LAST_EDGE_FEATURE = False
 USE_POS_DELTA = False
@@ -49,7 +51,7 @@ N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
 PAD_NODES = True
-MAX_NODES = 1000
+MAX_NODES = 500
 MAX_EDGES = 4
 
 # number of edges/actions for each robot, fixed
@@ -151,7 +153,7 @@ class CoverageEnv(gym.Env):
         self.n_motion_edges = 0
 
         self.last_loc = None
-        # self.node_history = None
+        self.node_history = None
 
         self.cached_solution = None
         self.graph_previous = None
@@ -177,14 +179,21 @@ class CoverageEnv(gym.Env):
 
             self.last_loc = self.closest_targets
 
-            next_locs = copy.copy(action)
+            next_locs = [-1] * len(action)  #copy.copy(action)
             for i in range(self.n_robots):
-                next_loc = self.mov_edges[1][np.where(self.mov_edges[0] == i)][action[i]]
-
-                if not COLLISION_CHECKS or next_loc not in next_locs[:i]:
+                cur_robot_edges = np.where(self.mov_edges[0] == i)
+                next_loc = self.mov_edges[1][cur_robot_edges][action[i]]
+                if next_loc == self.last_loc[i]:
                     next_locs[i] = next_loc
 
-                    self.x[i, 0:2] = self.x[next_loc, 0:2]
+            for i in range(self.n_robots):
+                if next_locs[i] == -1:
+                    next_loc = self.mov_edges[1][np.where(self.mov_edges[0] == i)][action[i]]
+                    if not COLLISION_CHECKS or next_loc not in next_locs:
+                        next_locs[i] = next_loc
+                        self.x[i, 0:2] = self.x[next_loc, 0:2]
+                    else:
+                        next_locs[i] = self.last_loc[i]
 
         obs, reward, done = self._get_obs_reward()
         # self.render()
@@ -230,6 +239,9 @@ class CoverageEnv(gym.Env):
         done - is this the last step of the episode?
         """
 
+        if REVISIT_NODES:
+            self.visited = np.where(self.landmark_flag * np.random.binomial(1, 0.005, size=np.shape(self.visited)) > 0.0, 0.0, self.visited)
+
         if PAD_ACTIONS:
             action_edges, action_dist, action_diff = self.get_action_edges()
         else:
@@ -249,8 +261,8 @@ class CoverageEnv(gym.Env):
         old_sum = np.sum(self.visited[self.n_robots:self.n_agents])
         self.visited[self.closest_targets] = 1
 
-        # if N_NODE_FEAT == 4:
-        #     self.node_history[self.closest_targets] = 1
+        if USE_NODE_HISTORY == 4:
+            self.node_history[self.closest_targets] = 1
 
         if COMM_EDGES:
             # communication edges among robots
@@ -309,6 +321,8 @@ class CoverageEnv(gym.Env):
         self.nodes[0:self.n_agents, 0] = self.robot_flag.flatten()
         self.nodes[0:self.n_agents, 1] = self.landmark_flag.flatten()
         self.nodes[0:self.n_agents, 2] = np.logical_not(self.visited).flatten()
+        if USE_NODE_HISTORY:
+            self.nodes[0:self.n_agents, 3] = self.node_history.flatten()
 
         # if USE_ROBOT_IDS:
         #     self.nodes[0:self.n_robots, 3] = np.arange(start=1, stop=self.n_robots+1, step=1).flatten()
@@ -352,7 +366,7 @@ class CoverageEnv(gym.Env):
         self.step_counter = 0
         self.cached_solution = None
         self.last_loc = None
-        # self.node_history = None
+        self.node_history = None
 
         targets, graph_changed = self._generate_targets()
 
@@ -394,7 +408,7 @@ class CoverageEnv(gym.Env):
             self.discovered_nodes = np.vstack(
                 (np.ones((self.n_robots, 1)), np.zeros((self.max_nodes - self.n_robots, 1))))
 
-        # self.node_history = np.zeros((self.n_agents, 1))
+        self.node_history = np.zeros((self.n_agents, 1))
         obs, _, _ = self._get_obs_reward()
         return obs
 
