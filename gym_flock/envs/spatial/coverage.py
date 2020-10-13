@@ -31,11 +31,11 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
-N_NODE_FEAT = 3
+N_NODE_FEAT = 4
 N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
-HIDE_NODES = False
+HIDE_NODES = True
 REVISIT_NODES = False
 COLLISION_CHECKS = True
 COMM_EDGES = False
@@ -148,6 +148,7 @@ class CoverageEnv(gym.Env):
         self.line2 = None
         self.line3 = None
         self.line4 = None
+        self.line5 = None
 
         self.step_counter = 0
         self.n_motion_edges = 0
@@ -332,6 +333,9 @@ class CoverageEnv(gym.Env):
             self.discovered_nodes[0:self.n_agents] = (self.discovered_nodes[0:self.n_agents].reshape((-1, 1)) + seen_nodes.astype(np.float)) > 0.0
             self.nodes = self.nodes * self.discovered_nodes.reshape((-1, 1))
 
+            frontier_node_ind = self.receivers[(1.0 - self.discovered_nodes[self.senders].flatten()) * self.discovered_nodes[self.receivers].flatten() > 0.0]
+            self.nodes[frontier_node_ind, 3] = 1.0
+
             seen_edges = self.discovered_nodes[self.senders].flatten() * self.discovered_nodes[self.receivers].flatten()
             seen_edges[-len(senders):] = 1.0
             out_senders = np.where(seen_edges > 0, self.senders, -1)
@@ -447,8 +451,10 @@ class CoverageEnv(gym.Env):
             self.line3, = self.ax.plot([], [], 'bo', markersize=5)
             # self.line4, = self.ax.plot([], [], 'yo')
 
-            self.line4, = self.ax.plot([], [], 'y.')  # TODO
+            self.line4, = self.ax.plot([], [], 'y.')
             self.line1, = self.ax.plot([], [], 'go', markersize=15, linewidth=0)
+
+            self.line5, = self.ax.plot([], [], 'w.')
 
             a = gca()
             a.set_xticklabels(a.get_xticks(), font)
@@ -467,6 +473,10 @@ class CoverageEnv(gym.Env):
         else:
             unvisited = np.where((self.visited[self.n_robots:] == 0).flatten())
             visited = np.where((self.visited[self.n_robots:] != 0).flatten())
+
+        if HIDE_NODES:
+            self.line5.set_xdata(self.x[:self.n_agents, 0][self.nodes[:self.n_agents, 3] > 0])
+            self.line5.set_ydata(self.x[:self.n_agents, 1][self.nodes[:self.n_agents, 3] > 0])
 
         self.line2.set_xdata(self.x[self.n_robots:, 0][unvisited])
         self.line2.set_ydata(self.x[self.n_robots:, 1][unvisited])
