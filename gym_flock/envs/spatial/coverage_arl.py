@@ -6,22 +6,23 @@ from gym_flock.envs.spatial.make_map import from_occupancy
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix
 
-
 MIN_GRAPH_SIZE = 200
 MAP_RES = 0.5
+HIDE_NODES = False
 
 
 class CoverageARLEnv(CoverageEnv):
 
     def __init__(self, n_robots=4, episode_length=50, pad_nodes=True, max_nodes=1000,
                  nearby_starts=True, num_subgraphs=3.0, check_connected=True,
-                 downsample_rate=10, perimeter_delta=2.0, horizon=-1):
+                 downsample_rate=10, perimeter_delta=2.0, horizon=-1, hide_nodes=HIDE_NODES, n_node_feat=3):
         """Initialize the mapping environment
         """
 
         super(CoverageARLEnv, self).__init__(n_robots=n_robots, init_graph=False, episode_length=episode_length,
                                              res=MAP_RES * downsample_rate, pad_nodes=pad_nodes, max_nodes=max_nodes,
-                                             nearby_starts=nearby_starts, horizon=horizon)
+                                             nearby_starts=nearby_starts, horizon=horizon, hide_nodes=hide_nodes,
+                                             n_node_feat=n_node_feat)
 
         # need to initialize graph to set up the observation space
         self.check_connected = check_connected

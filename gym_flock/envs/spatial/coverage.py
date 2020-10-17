@@ -31,11 +31,11 @@ font = {'family': 'sans-serif',
         'size': 14}
 
 # number of node and edge features
-N_NODE_FEAT = 4
+N_NODE_FEAT = 3
 N_EDGE_FEAT = 1
 N_GLOB_FEAT = 1
 
-HIDE_NODES = True
+HIDE_NODES = False
 REVISIT_NODES = False
 COLLISION_CHECKS = True
 COMM_EDGES = False
@@ -47,7 +47,7 @@ USE_POS_DELTA = False
 
 # NEARBY_STARTS = False
 NEARBY_STARTS = True
-N_HOP_EDGES = 1
+# N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
 PAD_NODES = True
@@ -57,7 +57,7 @@ MAX_EDGES = 4
 # number of edges/actions for each robot, fixed
 PAD_ACTIONS = True
 N_ACTIONS = 4
-ALLOW_NEAREST = False
+# ALLOW_NEAREST = False
 GREEDY_CONTROLLER = False
 
 EPISODE_LENGTH = 75
@@ -81,13 +81,15 @@ DELTA = 5.5
 class CoverageEnv(gym.Env):
     def __init__(self, n_robots=N_ROBOTS, frac_active_targets=FRAC_ACTIVE, xmax=XMAX, ymax=YMAX,
                  starts=start_regions, unvisiteds=unvisited_regions, init_graph=True, episode_length=EPISODE_LENGTH,
-                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES, nearby_starts=NEARBY_STARTS, horizon=HORIZON):
+                 res=DELTA, pad_nodes=PAD_NODES, max_nodes=MAX_NODES, nearby_starts=NEARBY_STARTS, horizon=HORIZON, hide_nodes=HIDE_NODES, n_node_feat=N_NODE_FEAT):
         """Initialize the mapping environment
         """
         super(CoverageEnv, self).__init__()
 
         self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
+        self.n_node_feat = n_node_feat
 
+        self.hide_nodes = hide_nodes
         self.horizon = horizon
         self.episode_length = episode_length
         self.nearby_starts = nearby_starts
@@ -248,7 +250,7 @@ class CoverageEnv(gym.Env):
         else:
             action_edges, action_dist, action_diff = _get_k_edges(self.n_actions, self.x[:self.n_robots, 0:2],
                                                                   self.x[self.n_robots:self.n_agents, 0:2],
-                                                                  allow_nearest=ALLOW_NEAREST)
+                                                                  allow_nearest=False)
             action_edges = (action_edges[0], action_edges[1] + self.n_robots)
 
         assert len(action_edges[0]) == N_ACTIONS * self.n_robots, "Number of action edges is not num robots x n_actions"
@@ -328,7 +330,7 @@ class CoverageEnv(gym.Env):
         # if USE_ROBOT_IDS:
         #     self.nodes[0:self.n_robots, 3] = np.arange(start=1, stop=self.n_robots+1, step=1).flatten()
 
-        if HIDE_NODES:
+        if self.hide_nodes:
             seen_nodes = _nodes_within_radius(4.0 * DELTA, self.x[:self.n_robots, 0:2], self.x[0:self.n_agents, 0:2])
             self.discovered_nodes[0:self.n_agents] = (self.discovered_nodes[0:self.n_agents].reshape((-1, 1)) + seen_nodes.astype(np.float)) > 0.0
             self.nodes = self.nodes * self.discovered_nodes.reshape((-1, 1))
@@ -408,7 +410,7 @@ class CoverageEnv(gym.Env):
         self.visited.fill(1)
         self.visited[random_unvisited_targets] = 0
 
-        if HIDE_NODES:
+        if self.hide_nodes:
             self.discovered_nodes = np.vstack(
                 (np.ones((self.n_robots, 1)), np.zeros((self.max_nodes - self.n_robots, 1))))
 
@@ -467,14 +469,14 @@ class CoverageEnv(gym.Env):
         self.line1.set_ydata(self.x[0:self.n_robots, 1])
 
         # update unvisited target plot
-        if HIDE_NODES:
+        if self.hide_nodes:
             unvisited = np.where((np.logical_and(self.visited[self.n_robots:] == 0, self.discovered_nodes[self.n_robots:self.n_agents] > 0)).flatten())
             visited = np.where((np.logical_and(self.visited[self.n_robots:] != 0, self.discovered_nodes[self.n_robots:self.n_agents] > 0)).flatten())
         else:
             unvisited = np.where((self.visited[self.n_robots:] == 0).flatten())
             visited = np.where((self.visited[self.n_robots:] != 0).flatten())
 
-        if HIDE_NODES:
+        if self.hide_nodes:
             self.line5.set_xdata(self.x[:self.n_agents, 0][self.nodes[:self.n_agents, 3] > 0])
             self.line5.set_ydata(self.x[:self.n_agents, 1][self.nodes[:self.n_agents, 3] > 0])
 
@@ -541,11 +543,11 @@ class CoverageEnv(gym.Env):
         self.n_actions = N_ACTIONS
 
         self.edges = np.zeros((self.max_edges, N_EDGE_FEAT), dtype=np.float32)
-        self.nodes = np.zeros((self.max_nodes, N_NODE_FEAT), dtype=np.float32)
+        self.nodes = np.zeros((self.max_nodes, self.n_node_feat), dtype=np.float32)
         self.senders = -1 * np.ones((self.max_edges,), dtype=np.int32)
         self.receivers = -1 * np.ones((self.max_edges,), dtype=np.int32)
 
-        if HIDE_NODES:
+        if self.hide_nodes:
             self.discovered_nodes = np.vstack(
                 (np.ones((self.n_robots, 1)), np.zeros((self.max_nodes - self.n_robots, 1))))
         # else:
@@ -568,22 +570,22 @@ class CoverageEnv(gym.Env):
         self.motion_edges = (self.motion_edges[0] + self.n_robots, self.motion_edges[1] + self.n_robots)
         self.n_motion_edges = len(self.motion_edges[0])
 
-        if N_HOP_EDGES > 1:
-            self.graph_cost, self.graph_previous = self.construct_time_matrix()
-            sender, receiver = np.where(self.graph_cost <= N_HOP_EDGES)
-            costs = self.graph_cost[(sender, receiver)]
-            self.n_motion_edges = len(sender)
-
-            self.senders[:self.n_motion_edges] = sender + self.n_robots
-            self.receivers[:self.n_motion_edges] = receiver + self.n_robots
-            self.edges[:self.n_motion_edges, 0] = costs
+        # if N_HOP_EDGES > 1:
+        #     self.graph_cost, self.graph_previous = self.construct_time_matrix()
+        #     sender, receiver = np.where(self.graph_cost <= N_HOP_EDGES)
+        #     costs = self.graph_cost[(sender, receiver)]
+        #     self.n_motion_edges = len(sender)
+        #
+        #     self.senders[:self.n_motion_edges] = sender + self.n_robots
+        #     self.receivers[:self.n_motion_edges] = receiver + self.n_robots
+        #     self.edges[:self.n_motion_edges, 0] = costs
+        # else:
+        self.senders[:self.n_motion_edges] = self.motion_edges[0]
+        self.receivers[:self.n_motion_edges] = self.motion_edges[1]
+        if not USE_POS_DELTA:
+            self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
         else:
-            self.senders[:self.n_motion_edges] = self.motion_edges[0]
-            self.receivers[:self.n_motion_edges] = self.motion_edges[1]
-            if not USE_POS_DELTA:
-                self.edges[:self.n_motion_edges, 0] = self.motion_dist.reshape((-1,))
-            else:
-                self.edges[:self.n_motion_edges, 0:2] = self.motion_diff.reshape((-1,2))
+            self.edges[:self.n_motion_edges, 0:2] = self.motion_diff.reshape((-1,2))
 
         if self.nearby_starts:
             n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
@@ -595,9 +597,9 @@ class CoverageEnv(gym.Env):
         self.action_space = spaces.MultiDiscrete([self.n_actions] * self.n_robots)
 
         if self.pad_nodes:
-            nodes_space = Box(shape=(self.max_nodes, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)
+            nodes_space = Box(shape=(self.max_nodes, self.n_node_feat), low=-np.Inf, high=np.Inf, dtype=np.float32)
         else:
-            nodes_space = Box(shape=(self.n_agents, N_NODE_FEAT), low=-np.Inf, high=np.Inf, dtype=np.float32)
+            nodes_space = Box(shape=(self.n_agents, self.n_node_feat), low=-np.Inf, high=np.Inf, dtype=np.float32)
 
         self.observation_space = gym.spaces.Dict(
             [
@@ -664,24 +666,31 @@ class CoverageEnv(gym.Env):
         return n_nearest
 
     @staticmethod
-    def get_number_nodes(ob_space):
-        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+    def get_number_nodes(ob_space, n_node_feat=None):
+        if n_node_feat is None:
+            n_node_feat = N_NODE_FEAT
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + n_node_feat)
         return n_nodes
 
     @staticmethod
-    def get_node_features():
-        return N_NODE_FEAT
+    def get_node_features(n_node_feat=None):
+        if n_node_feat is None:
+            return N_NODE_FEAT
+        else:
+            return N_NODE_FEAT
 
     @staticmethod
-    def unpack_obs(obs, ob_space):
+    def unpack_obs(obs, ob_space, dim_nodes=None):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
+        if dim_nodes is None:
+            dim_nodes = N_NODE_FEAT
+
         # assume flattened box
-        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + dim_nodes)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = N_EDGE_FEAT
-        dim_nodes = N_NODE_FEAT
 
         # unpack node and edge data from flattened array
         # order given by self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
@@ -725,15 +734,17 @@ class CoverageEnv(gym.Env):
         return batch_size, n_node, nodes, n_edge, edges, senders, receivers, globs
 
     @staticmethod
-    def unpack_obs_state(obs, ob_space, state, dim_state):
+    def unpack_obs_state(obs, ob_space, state, dim_state, dim_nodes=None):
         assert tf is not None, "Function unpack_obs() is not available if Tensorflow is not imported."
 
+        if dim_nodes is None:
+            dim_nodes = N_NODE_FEAT
+
         # assume flattened box
-        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + N_NODE_FEAT)
+        n_nodes = (ob_space.shape[0] - N_GLOB_FEAT) // (MAX_EDGES * (2 + N_EDGE_FEAT) + dim_nodes)
         max_edges = MAX_EDGES
         max_n_edges = n_nodes * max_edges
         dim_edges = N_EDGE_FEAT
-        dim_nodes = N_NODE_FEAT
 
         # unpack node and edge data from flattened array
         # order given by self.keys = ['nodes', 'edges', 'senders', 'receivers', 'step']
@@ -795,6 +806,8 @@ class CoverageEnv(gym.Env):
         # get nearest unvisited target
         r = self.graph_cost[curr_loc - self.n_robots, :]
         r[:, np.where(self.visited[self.n_robots:] == 1)] = MAX_COST
+        if self.hide_nodes:
+            r[:, np.where(self.discovered_nodes[self.n_robots:self.n_agents] == 0.0)] = MAX_COST
         greedy_loc = np.argmin(r, axis=1) + self.n_robots
 
         # if no unvisited targets in the horizon

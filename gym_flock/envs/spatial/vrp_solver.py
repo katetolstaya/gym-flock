@@ -23,7 +23,10 @@ def create_data_model(env):
     init_loc = env.closest_targets - env.n_robots
 
     # get visitation of nodes
-    penalty = np.logical_not(env.visited[env.n_robots:]) * penalty_multiplier
+    need_to_visit = np.logical_not(env.visited[env.n_robots:])
+    if env.hide_nodes:
+        need_to_visit = np.logical_and(need_to_visit, env.discovered_nodes[env.n_robots:env.n_agents] > 0)
+    penalty = need_to_visit * penalty_multiplier
     penalty = np.insert(penalty, 0, 0.0)
     data['penalties'] = penalty
 
