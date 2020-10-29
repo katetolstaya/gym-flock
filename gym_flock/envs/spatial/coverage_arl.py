@@ -6,6 +6,7 @@ from gym_flock.envs.spatial.make_map import from_occupancy
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix
 
+# MIN_GRAPH_SIZE = 20
 MIN_GRAPH_SIZE = 200
 MAP_RES = 0.5
 HIDE_NODES = False

@@ -25,7 +25,8 @@ def create_data_model(env):
     # get visitation of nodes
     need_to_visit = np.logical_not(env.visited[env.n_robots:])
     if env.hide_nodes:
-        need_to_visit = np.logical_and(need_to_visit, env.discovered_nodes[env.n_robots:env.n_agents] > 0)
+        need_to_visit = np.logical_and(need_to_visit, np.not_equal(env.discovered_nodes[env.n_robots:env.n_agents], 0.0))
+
     penalty = need_to_visit * penalty_multiplier
     penalty = np.insert(penalty, 0, 0.0)
     data['penalties'] = penalty
@@ -125,8 +126,9 @@ def solve_vrp(env, trajectory_length=None):
     # which is the best? https://developers.google.com/optimization/routing/routing_options
 
     # Anytime search parameters:
-    # search_parameters.time_limit.seconds = 30
-    # search_parameters.solution_limit = 100
+    # search_parameters.time_limit.seconds = 10
+    #
+    # print('running solver')
 
     # Solve the problem.
     assignment = routing.SolveWithParameters(search_parameters)

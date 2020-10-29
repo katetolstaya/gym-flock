@@ -7,4 +7,4 @@ class ExploreEnv(CoverageARLEnv):
         """Initialize the mapping environment
         """
 
-        super(ExploreEnv, self).__init__(hide_nodes=True, n_node_feat=4)
+        super(ExploreEnv, self).__init__(hide_nodes=True, n_node_feat=4, horizon=19, episode_length=50)

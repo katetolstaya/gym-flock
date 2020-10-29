@@ -47,6 +47,7 @@ USE_POS_DELTA = False
 
 # NEARBY_STARTS = False
 NEARBY_STARTS = True
+NEARBY_DENSITY = 5
 # N_HOP_EDGES = 1
 
 # padding for a variable number of graph edges
@@ -394,6 +395,11 @@ class CoverageEnv(gym.Env):
             self.line4 = None
 
             self._initialize_graph(targets)
+        else:
+            if self.nearby_starts:
+                n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * NEARBY_DENSITY)
+                # n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), 200)
+                self.start_region = [i in n_nearest for i in range(self.n_targets)]
 
         # initialize robots near targets
         nearest_landmarks = self.np_random.choice(np.arange(self.n_targets)[self.start_region], size=(self.n_robots,),
@@ -588,7 +594,8 @@ class CoverageEnv(gym.Env):
             self.edges[:self.n_motion_edges, 0:2] = self.motion_diff.reshape((-1,2))
 
         if self.nearby_starts:
-            n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * 5)
+            n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), self.n_robots * NEARBY_DENSITY)
+            # n_nearest = self.get_n_nearest(self.np_random.choice(self.n_targets), 200)
             self.start_region = [i in n_nearest for i in range(self.n_targets)]
         else:
             self.start_region = [True] * (self.n_agents - self.n_robots)
@@ -800,6 +807,9 @@ class CoverageEnv(gym.Env):
 
         if self.graph_previous is None:
             self.graph_cost, self.graph_previous = self.construct_time_matrix()
+            # print('Graph Diameter')
+            # print(np.max(self.graph_cost[self.graph_cost < MAX_COST]))
+            self.graph_diameter = np.max(self.graph_cost[self.graph_cost < MAX_COST])
 
         curr_loc = self.closest_targets
 
@@ -807,7 +817,7 @@ class CoverageEnv(gym.Env):
         r = self.graph_cost[curr_loc - self.n_robots, :]
         r[:, np.where(self.visited[self.n_robots:] == 1)] = MAX_COST
         if self.hide_nodes:
-            r[:, np.where(self.discovered_nodes[self.n_robots:self.n_agents] == 0.0)] = MAX_COST
+            r[:, np.where(np.equal(self.discovered_nodes[self.n_robots:self.n_agents], 0.0))] = MAX_COST
         greedy_loc = np.argmin(r, axis=1) + self.n_robots
 
         # if no unvisited targets in the horizon

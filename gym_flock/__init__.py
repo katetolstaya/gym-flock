@@ -6,12 +6,30 @@ register(
     max_episode_steps=100000,
 )
 
+register(
+    id='ExploreFullEnv-v0',
+    entry_point='gym_flock.envs.spatial:ExploreFullEnv',
+    max_episode_steps=100000,
+)
+
+register(
+    id='ExploreEnv-v1',
+    entry_point='gym_flock.envs.spatial:ExploreEnv',
+    max_episode_steps=100000,
+)
 
 register(
     id='CoverageFull-v0',
     entry_point='gym_flock.envs.spatial:CoverageFullEnv',
     max_episode_steps=100000,
 )
+
+register(
+    id='CoverageARL-v1',
+    entry_point='gym_flock.envs.spatial:CoverageARLEnv',
+    max_episode_steps=100000,
+)
+
 
 register(
     id='CoverageARL-v0',

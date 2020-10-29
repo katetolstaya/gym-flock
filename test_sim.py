@@ -3,6 +3,7 @@ import gym_flock
 import numpy as np
 import copy
 import rospy
+import timeit
 from mav_manager.srv import Vec4Request, Vec4
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
@@ -88,6 +89,8 @@ def get_markers():
     return marker_array
 
 
+total_reward = 0
+start_time = timeit.default_timer()
 while True:
 
     marker_publisher.publish(get_markers())
@@ -96,10 +99,13 @@ while True:
     arl_env.update_state(x)
 
     obs, reward, done = arl_env._get_obs_reward()
+    total_reward += reward
+    elapsed = timeit.default_timer() - start_time
+    print('Time: ' + str(elapsed) + ' , Cum. Reward: ' + str(total_reward))
 
     # compute local action
-    # action = arl_env.controller(random=False, greedy=True)
-    action = arl_env.controller(random=True, greedy=True)
+    action = arl_env.controller(random=False, greedy=True)
+    # action = arl_env.controller(random=True, greedy=True)
     next_loc = copy.copy(action.reshape((-1, 1)))
 
     # convert to next waypoint
@@ -123,5 +129,5 @@ while True:
 
     arl_env.last_loc = np.where(arl_env.last_loc == arl_env.closest_targets, old_last_loc, arl_env.last_loc)
 
-    env.render()
+    # env.render()
     r.sleep()
