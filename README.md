@@ -32,6 +32,15 @@ To cite this repository in publications:
   pages={671--682},
   year={2020}
 }
+
+@misc{tolstaya2020multirobot,
+      title={Multi-Robot Coverage and Exploration using Spatial Graph Neural Networks}, 
+      author={Ekaterina Tolstaya and James Paulos and Vijay Kumar and Alejandro Ribeiro},
+      year={2020},
+      eprint={2011.01119},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO}
+}
 ```
 
 
