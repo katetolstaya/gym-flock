@@ -20,15 +20,17 @@ Include the following code in your Python script:
 ~~~~
 import gym  
 import gym_flock 
-env = gym.make("FlockingRelative-v0")` 
+env = gym.make("Coverage-v0")` 
 ~~~~
 and then use the `env.reset()` and `env.step()` for interfacing with the environment as you would with other OpenAI Gym environments. 
 These implementations also include a `env.controller()` function that gives the best current set of actions to be used for imitation learning.
 
-Please note that the state of these environments returns a tuple for the states of all agents, along with a matrix of the connectivity of the network of agents. 
+The learning code for the flocking task can be found [here](https://github.com/katetolstaya/multiagent_gnn_policies)
+
+The learning code for the spatial coverage tasks can be found [here](https://github.com/katetolstaya/graph_rl)
 
 ## Citing the Project
-To cite this repository in publications:
+To cite the flocking environment in publications:
 ```shell
 @inproceedings{tolstaya2020learning,
   title={Learning decentralized controllers for robot swarms with graph neural networks},
@@ -36,6 +38,17 @@ To cite this repository in publications:
   booktitle={Conference on Robot Learning},
   pages={671--682},
   year={2020}
+}
+```
+To cite the spatial coverage code in publications:
+```shell
+@misc{tolstaya2020multirobot,
+      title={Multi-Robot Coverage and Exploration using Spatial Graph Neural Networks}, 
+      author={Ekaterina Tolstaya and James Paulos and Vijay Kumar and Alejandro Ribeiro},
+      year={2020},
+      eprint={2011.01119},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO}
 }
 ```
 
