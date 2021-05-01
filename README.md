@@ -29,6 +29,18 @@ The learning code for the flocking task can be found [here](https://github.com/k
 
 The learning code for the spatial coverage tasks can be found [here](https://github.com/katetolstaya/graph_rl)
 
+## Using AirSim
+
+Install AirSim according to instructions [here](https://github.com/microsoft/AirSim)
+
+Move the settings.json file from `gym-flock/gym_flock/envs/airsim/` to `~/Documents/AirSim/`
+Try changing the configuration to change the number of robots. The default number of robots is 5.
+
+Launch AirSim
+
+Launch test code with environment name `FlockingAirsimAccel-v0`. The code for this environment can be found [here](https://github.com/katetolstaya/gym-flock/blob/stable/gym_flock/envs/flocking/flocking_airsim_accel.py)
+The environment will read the configuration file to identify the number of robots in the simulation.
+
 ## Citing the Project
 To cite the flocking environment in publications:
 ```shell
