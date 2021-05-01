@@ -1,0 +1,209 @@
+{
+	"SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+	"SettingsVersion": 1.2,
+	"SimMode": "Multirotor",
+	"ClockSpeed": 1,
+	
+	"Vehicles": {
+		"Drone1": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -144, "Y": -8, "Z": -2
+		},
+		"Drone2": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -144, "Y": -4, "Z": -2
+		},
+		"Drone3": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -144, "Y": 0, "Z": -2
+		},
+		"Drone4": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -144, "Y": 4, "Z": -2
+		},
+		"Drone5": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -144, "Y": 8, "Z": -2
+		},
+		"Drone6": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -140, "Y": -8, "Z": -2
+		},
+		"Drone7": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -140, "Y": -4, "Z": -2
+		},
+		"Drone8": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -140, "Y": 0, "Z": -2
+		},
+		"Drone9": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -140, "Y": 4, "Z": -2
+		},
+		"Drone11": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -140, "Y": 8, "Z": -2
+		},
+		"Drone12": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -136, "Y": -8, "Z": -2
+		},
+		"Drone13": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -136, "Y": -4, "Z": -2
+		},
+		"Drone14": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -136, "Y": 0, "Z": -2
+		},
+		"Drone15": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -136, "Y": 4, "Z": -2
+		},
+		"Drone10": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -136, "Y": 8, "Z": -2
+		},
+		"Drone16": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -132, "Y": -8, "Z": -2
+		},
+		"Drone17": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -132, "Y": -4, "Z": -2
+		},
+		"Drone18": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -132, "Y": 0, "Z": -2
+		},
+		"Drone19": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -132, "Y": 4, "Z": -2
+		},
+		"Drone20": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -132, "Y": 8, "Z": -2
+		}, 
+		"Drone21": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -128, "Y": -8, "Z": -2
+		},
+		"Drone22": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -128, "Y": -4, "Z": -2
+		},
+		"Drone23": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -128, "Y": 0, "Z": -2
+		},
+		"Drone24": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -128, "Y": 4, "Z": -2
+		},
+		"Drone25": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -128, "Y": 8, "Z": -2
+		},
+		"Drone26": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -124, "Y": -8, "Z": -2
+		},
+		"Drone27": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -124, "Y": -4, "Z": -2
+		},
+		"Drone28": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -124, "Y": 0, "Z": -2
+		},
+		"Drone29": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -124, "Y": 4, "Z": -2
+		},
+		"Drone30": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -124, "Y": 8, "Z": -2
+		},
+		"Drone31": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -120, "Y": -8, "Z": -2
+		},
+		"Drone32": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -120, "Y": -4, "Z": -2
+		},
+		"Drone33": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -120, "Y": 0, "Z": -2
+		},
+		"Drone34": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -120, "Y": 4, "Z": -2
+		},
+		"Drone35": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -120, "Y": 8, "Z": -2
+		},
+		"Drone36": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -116, "Y": -8, "Z": -2
+		},
+		"Drone37": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -116, "Y": -4, "Z": -2
+		},
+		"Drone38": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -116, "Y": 0, "Z": -2
+		},
+		"Drone39": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -116, "Y": 4, "Z": -2
+		},
+		"Drone40": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -116, "Y": 8, "Z": -2
+		},
+		"Drone41": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -112, "Y": -8, "Z": -2
+		},
+		"Drone42": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -112, "Y": -4, "Z": -2
+		},
+		"Drone43": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -112, "Y": 0, "Z": -2
+		},
+		"Drone44": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -112, "Y": 4, "Z": -2
+		},
+		"Drone45": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -112, "Y": 8, "Z": -2
+		},
+		"Drone46": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -108, "Y": -8, "Z": -2
+		},
+		"Drone47": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -108, "Y": -4, "Z": -2
+		},
+		"Drone48": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -108, "Y": 0, "Z": -2
+		},
+		"Drone49": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -108, "Y": 4, "Z": -2
+		},
+		"Drone50": {
+		  "VehicleType": "SimpleFlight",
+		  "X": -108, "Y": 8, "Z": -2
+		}
+    }
+}
